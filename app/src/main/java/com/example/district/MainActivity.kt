@@ -1,5 +1,5 @@
 package com.example.district
-// Project reopened from GitHub - все работает!gi
+// Project reopened from GitHub - все работает!(2)
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
