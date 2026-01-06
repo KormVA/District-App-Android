@@ -7,6 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.district.security.SecureAuth  // ← ИМПОРТ
 
 @Composable
 fun SecureLoginScreen(
@@ -49,10 +50,11 @@ fun SecureLoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Кнопка входа
+        // Кнопка входа - ПРОСТАЯ ВЕРСИЯ
         Button(
             onClick = {
-                if (username.isNotBlank() && password.isNotBlank()) {
+                // ПРОВЕРЯЕМ ПАРОЛЬ
+                if (SecureAuth.checkPassword(username, password)) {
                     onLoginSuccess()
                 }
             },
