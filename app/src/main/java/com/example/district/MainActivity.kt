@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.district.ui.theme.DistrictTheme
+import com.example.district.ui.auth.SecureLoginScreen
 
 // Модель данных для объявления (пока заглушка)
 data class Advert(
@@ -34,11 +35,25 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             DistrictTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    MainScreen()
+                // 🔐 Состояние: вошёл ли пользователь
+                var isLoggedIn by remember { mutableStateOf(false) }
+
+                if (isLoggedIn) {
+                    // ✅ ЕСЛИ ВОШЁЛ: показываем твой старый интерфейс
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        MainScreen()
+                    }
+                } else {
+                    // 🔐 ЕСЛИ НЕ ВОШЁЛ: показываем экран входа
+                    SecureLoginScreen(
+                        onLoginSuccess = {
+                            // При успешном входе меняем состояние
+                            isLoggedIn = true
+                        }
+                    )
                 }
             }
         }
