@@ -44,7 +44,11 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        MainScreen()
+                        MainScreen(
+                            onLogout = {
+                                isLoggedIn = false  // ← КНОПКА ВЫХОДА
+                            }
+                        )
                     }
                 } else {
                     // 🔐 ЕСЛИ НЕ ВОШЁЛ: показываем экран входа
@@ -63,7 +67,7 @@ class MainActivity : ComponentActivity() {
 // Главный экран с навигацией
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(onLogout: () -> Unit) {  // ← ДОБАВИЛИ ПАРАМЕТР ДЛЯ ВЫХОДА
     // Состояние для текущей вкладки
     var selectedTab by remember { mutableStateOf(0) }
 
@@ -79,7 +83,7 @@ fun MainScreen() {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("") },
+                title = { Text("District") },  // ← ДОБАВИЛИ НАЗВАНИЕ
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 )
@@ -113,7 +117,7 @@ fun MainScreen() {
             when (selectedTab) {
                 0 -> AdvertsScreen(adverts = adverts)
                 1 -> MessagesScreen()
-                2 -> ProfileScreen()
+                2 -> ProfileScreen(onLogout = onLogout)  // ← ПЕРЕДАЛИ ФУНКЦИЮ ВЫХОДА
             }
         }
     }
@@ -200,14 +204,67 @@ fun MessagesScreen() {
     }
 }
 
-// Экран профиля (заглушка)
+// Экран профиля С КНОПКОЙ ВЫХОДА
 @Composable
-fun ProfileScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+fun ProfileScreen(onLogout: () -> Unit) {  // ← ПРИНИМАЕМ ФУНКЦИЮ ВЫХОДА
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Text("Здесь будет профиль пользователя", style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = "👤 Профиль",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        Text(
+            text = "Добро пожаловать в District!",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        // КНОПКА ВЫХОДА
+        Button(
+            onClick = onLogout,  // ← ВЫЗЫВАЕМ ФУНКЦИЮ ВЫХОДА
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.Person, contentDescription = "Выйти")
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Выйти из аккаунта")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Информация о security демо
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "🔐 Security демо:",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "• Базовая аутентификация\n• Безопасный выход\n• Управление сессией",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
     }
 }
 
@@ -215,6 +272,6 @@ fun ProfileScreen() {
 @Composable
 fun MainScreenPreview() {
     DistrictTheme {
-        MainScreen()
+        MainScreen(onLogout = {})  // ← ПЕРЕДАЕМ ПУСТУЮ ФУНКЦИЮ ДЛЯ ПРЕВЬЮ
     }
 }
