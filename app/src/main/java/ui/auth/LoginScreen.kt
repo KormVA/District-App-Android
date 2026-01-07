@@ -5,14 +5,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext  // ← ВАЖНО!
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.example.district.security.SecureAuth  // ← ИМПОРТ
+import com.example.district.security.SecureAuth
 
 @Composable
 fun SecureLoginScreen(
     onLoginSuccess: () -> Unit
 ) {
+    val context = LocalContext.current  // ← Получаем контекст
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
@@ -50,11 +52,12 @@ fun SecureLoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Кнопка входа - ПРОСТАЯ ВЕРСИЯ
+        // Кнопка входа
         Button(
             onClick = {
-                // ПРОВЕРЯЕМ ПАРОЛЬ
-                if (SecureAuth.checkPassword(username, password)) {
+                // ✅ ПРАВИЛЬНО: создаём объект и вызываем метод
+                val auth = SecureAuth(context)
+                if (auth.checkPassword(username, password)) {
                     onLoginSuccess()
                 }
             },
