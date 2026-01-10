@@ -6,14 +6,12 @@ plugins {
 
 android {
     namespace = "com.example.district"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36  // ← ИСПРАВЬТЕ ЭТУ СТРОКУ!
 
     defaultConfig {
         applicationId = "com.example.district"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 36  // ← ТАКЖЕ ИСПРАВЬТЕ
         versionCode = 1
         versionName = "1.0"
 
@@ -51,6 +49,10 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+
+    // ДОБАВЬТЕ ЭТО ДЛЯ ИКОНОК:
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")  // ← ВАЖНО!
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

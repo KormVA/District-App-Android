@@ -20,6 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.district.ui.theme.DistrictTheme
 import com.example.district.ui.auth.SecureLoginScreen
+import com.example.district.ui.auth.ProfileScreen
 
 // Модель данных для объявления (пока заглушка)
 data class Advert(
