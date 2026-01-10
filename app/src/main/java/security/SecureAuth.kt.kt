@@ -62,8 +62,8 @@ class SecureAuth(private val context: Context) {
         if (storedHash == null || salt == null) {
             // Устанавливаем пароль по умолчанию
             setupPassword("admin123")
-            // Теперь проверяем заново
-            return checkPassword(login, password)
+            return login == "admin" && password == "admin123"
+
         }
 
         val inputHash = hashPassword(password, salt)
