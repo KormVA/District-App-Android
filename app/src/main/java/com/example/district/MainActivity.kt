@@ -20,6 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.district.ui.theme.DistrictTheme
 import com.example.district.ui.auth.SecureLoginScreen
+import com.example.district.ui.auth.RegisterScreen
 import com.example.district.ui.auth.ProfileScreen
 
 // Модель данных для объявления (пока заглушка)
@@ -38,8 +39,24 @@ class MainActivity : ComponentActivity() {
             DistrictTheme {
                 // 🔐 Состояние: вошёл ли пользователь
                 var isLoggedIn by remember { mutableStateOf(false) }
+                var showRegistration by remember { mutableStateOf(false) }
 
-                if (isLoggedIn) {
+                if (showRegistration) {
+                    // 📝 ЕСЛИ РЕГИСТРАЦИЯ: показываем экран регистрации
+                    RegisterScreen(
+                        onBack = { showRegistration = false },
+                        onRegisterSuccess = {
+                            showRegistration = false
+                            isLoggedIn = true
+                        }
+                    )
+                } else if (!isLoggedIn) {
+                    // 🔐 ЕСЛИ НЕ ВОШЁЛ: показываем экран входа
+                    SecureLoginScreen(
+                        onLoginSuccess = { isLoggedIn = true },
+                        onNavigateToRegister = { showRegistration = true }
+                    )
+                } else {
                     // ✅ ЕСЛИ ВОШЁЛ: показываем твой старый интерфейс
                     Surface(
                         modifier = Modifier.fillMaxSize(),
@@ -51,14 +68,6 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
-                } else {
-                    // 🔐 ЕСЛИ НЕ ВОШЁЛ: показываем экран входа
-                    SecureLoginScreen(
-                        onLoginSuccess = {
-                            // При успешном входе меняем состояние
-                            isLoggedIn = true
-                        }
-                    )
                 }
             }
         }
@@ -68,7 +77,7 @@ class MainActivity : ComponentActivity() {
 // Главный экран с навигацией
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(onLogout: () -> Unit) {  // ← ДОБАВИЛИ ПАРАМЕТР ДЛЯ ВЫХОДА
+fun MainScreen(onLogout: () -> Unit) {
     // Состояние для текущей вкладки
     var selectedTab by remember { mutableStateOf(0) }
 
@@ -84,7 +93,7 @@ fun MainScreen(onLogout: () -> Unit) {  // ← ДОБАВИЛИ ПАРАМЕТР
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("District") },  // ← ДОБАВИЛИ НАЗВАНИЕ
+                title = { Text("District") },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 )
@@ -118,7 +127,7 @@ fun MainScreen(onLogout: () -> Unit) {  // ← ДОБАВИЛИ ПАРАМЕТР
             when (selectedTab) {
                 0 -> AdvertsScreen(adverts = adverts)
                 1 -> MessagesScreen()
-                2 -> ProfileScreen(onLogout = onLogout)  // ← ПЕРЕДАЛИ ФУНКЦИЮ ВЫХОДА
+                2 -> ProfileScreen(onLogout = onLogout)
             }
         }
     }
@@ -207,7 +216,7 @@ fun MessagesScreen() {
 
 // Экран профиля С КНОПКОЙ ВЫХОДА
 @Composable
-fun ProfileScreen(onLogout: () -> Unit) {  // ← ПРИНИМАЕМ ФУНКЦИЮ ВЫХОДА
+fun ProfileScreen(onLogout: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -230,7 +239,7 @@ fun ProfileScreen(onLogout: () -> Unit) {  // ← ПРИНИМАЕМ ФУНКЦ�
 
         // КНОПКА ВЫХОДА
         Button(
-            onClick = onLogout,  // ← ВЫЗЫВАЕМ ФУНКЦИЮ ВЫХОДА
+            onClick = onLogout,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.errorContainer,
                 contentColor = MaterialTheme.colorScheme.onErrorContainer
@@ -273,6 +282,6 @@ fun ProfileScreen(onLogout: () -> Unit) {  // ← ПРИНИМАЕМ ФУНКЦ�
 @Composable
 fun MainScreenPreview() {
     DistrictTheme {
-        MainScreen(onLogout = {})  // ← ПЕРЕДАЕМ ПУСТУЮ ФУНКЦИЮ ДЛЯ ПРЕВЬЮ
+        MainScreen(onLogout = {})
     }
 }
