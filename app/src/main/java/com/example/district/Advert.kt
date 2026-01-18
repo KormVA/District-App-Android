@@ -10,7 +10,8 @@ data class Advert(
     val author: String,
     val phone: String,
     val date: String,
-    val imageUrl: String = "" // для будущих фото
+    val imageUrl: String = "", // для будущих фото
+    var isFavorite: Boolean = false, // ← НОВОЕ ПОЛЕ
 )
 
 // Категории товаров
