@@ -22,6 +22,7 @@ import com.example.district.ui.theme.DistrictTheme
 import com.example.district.ui.auth.SecureLoginScreen
 import com.example.district.ui.auth.RegisterScreen
 import com.example.district.ui.auth.ProfileScreen
+import com.example.district.ui.main.MarketplaceScreen
 
 // Модель данных для объявления (пока заглушка)
 data class Advert(
@@ -125,7 +126,7 @@ fun MainScreen(onLogout: () -> Unit) {
         // Содержимое в зависимости от выбранной вкладки
         Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
-                0 -> AdvertsScreen(adverts = adverts)
+                0 -> MarketplaceScreen()
                 1 -> MessagesScreen()
                 2 -> ProfileScreen(onLogout = onLogout)
             }

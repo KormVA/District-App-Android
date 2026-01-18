@@ -41,7 +41,7 @@ fun SecureLoginScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "District — площадка для соседей",
+            text = "District — Авторизация",
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(bottom = 24.dp)
         )
