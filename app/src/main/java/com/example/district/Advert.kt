@@ -11,7 +11,8 @@ data class Advert(
     val phone: String,
     val date: String,
     val imageUrl: String = "", // для будущих фото
-    var isFavorite: Boolean = false, // ← НОВОЕ ПОЛЕ
+    var isFavorite: Boolean = false,
+    val house: String, // ← ЗАПЯТАЯ ЗДЕСЬ ОБЯЗАТЕЛЬНА!
 )
 
 // Категории товаров
@@ -23,3 +24,11 @@ enum class Category(val title: String) {
     AUTO("Авто"),
     OTHER("Другое")
 }
+
+// Расширяем модель пользователя
+data class UserProfile(
+    val login: String,
+    val displayName: String, // Имя для показа
+    val house: String, // Дом пользователя
+    val phone: String = ""
+)

@@ -35,6 +35,7 @@ fun RegisterScreen(
     var showConfirmPassword by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    var house by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -77,6 +78,12 @@ fun RegisterScreen(
                 onValueChange = { phone = it },
                 label = { Text("Номер телефона") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = house,
+                onValueChange = { house = it },
+                label = { Text("Ваш дом (например: ул. Ленина, 10)") },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -146,7 +153,7 @@ fun RegisterScreen(
                     scope.launch {
                         isLoading = true
                         val auth = SecureAuth(context)
-                        val success = auth.setupPassword(password)
+                        val success = auth.registerUser(username, password, username, house)
 
                         if (success) {
                             // Здесь можно сохранить username и phone в базу данных

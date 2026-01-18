@@ -57,7 +57,9 @@ private fun getSampleAdverts(): List<Advert> {
             category = "Электроника",
             author = "Алексей",
             phone = "+7 (999) 123-45-67",
-            date = "17 янв"
+            date = "17 янв",
+            isFavorite = false,
+            house = "ул. Ленина, 10"
         ),
         Advert(
             id = 2,
@@ -67,7 +69,9 @@ private fun getSampleAdverts(): List<Advert> {
             category = "Мебель",
             author = "Мария",
             phone = "+7 (999) 765-43-21",
-            date = "16 янв"
+            date = "16 янв",
+            isFavorite = false,
+            house = "ул. Ленина, 10"
         ),
         Advert(
             id = 3,
@@ -77,7 +81,9 @@ private fun getSampleAdverts(): List<Advert> {
             category = "Одежда",
             author = "Дмитрий",
             phone = "+7 (999) 111-22-33",
-            date = "15 янв"
+            date = "15 янв",
+            isFavorite = false,
+            house = "ул. Ленина, 12"
         ),
         Advert(
             id = 4,
@@ -87,7 +93,9 @@ private fun getSampleAdverts(): List<Advert> {
             category = "Книги",
             author = "Сергей",
             phone = "+7 (999) 444-55-66",
-            date = "14 янв"
+            date = "14 янв",
+            isFavorite = false,
+            house = "ул. Ленина, 12"
         ),
         Advert(
             id = 5,
@@ -97,7 +105,9 @@ private fun getSampleAdverts(): List<Advert> {
             category = "Другое",
             author = "Ольга",
             phone = "+7 (999) 777-88-99",
-            date = "13 янв"
+            date = "13 янв",
+            isFavorite = false,
+            house = "ул. Ленина, 10"
         )
     )
 }

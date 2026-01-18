@@ -12,23 +12,43 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.district.models.Advert
 import com.example.district.models.Category
+import com.example.district.security.SecureAuth
 import com.example.district.viewmodels.FavoritesViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MarketplaceScreen() {
     val favoritesViewModel: FavoritesViewModel = viewModel()
+    val context = LocalContext.current
+    val auth = SecureAuth(context)
     var showFilter by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
 
-    // Получаем товары из ViewModel
-    val adverts = favoritesViewModel.getFilteredAdverts(selectedCategory)
+    // Получаем текущего пользователя и его дом
+    val currentUser = auth.getCurrentUser()
+    val currentUserHouse = currentUser?.house ?: ""
+
+    // Получаем ВСЕ товары
+    val allAdverts = favoritesViewModel.allAdverts
+
+    // Фильтруем: сначала по дому, потом по категориям/избранному
+    val filteredAdverts = allAdverts.filter { advert ->
+        // 1. Фильтр по дому (самый важный!)
+        advert.house == currentUserHouse &&
+                // 2. Фильтр по категории (если выбрана)
+                (selectedCategory == null ||
+                        selectedCategory == "Все товары" ||
+                        advert.category == selectedCategory) &&
+                // 3. Фильтр по избранному (если включён)
+                (!favoritesViewModel.showFavoritesOnly || advert.isFavorite)
+    }
 
     Column(
         modifier = Modifier
@@ -38,10 +58,16 @@ fun MarketplaceScreen() {
         // Заголовок и кнопки
         TopAppBar(
             title = {
+                // Показываем дом пользователя в заголовке
                 Text(
-                    text = if (favoritesViewModel.showFavoritesOnly) "⭐ Избранное"
-                    else "District Товары",
-                    fontWeight = FontWeight.Bold
+                    text = if (favoritesViewModel.showFavoritesOnly)
+                        "⭐ Избранное в ${currentUserHouse.takeIf { it.isNotBlank() } ?: "вашем доме"}"
+                    else if (currentUserHouse.isNotBlank())
+                        "District • $currentUserHouse"
+                    else
+                        "District Товары",
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
                 )
             },
             actions = {
@@ -94,8 +120,48 @@ fun MarketplaceScreen() {
             )
         }
 
+        // Информация о текущем фильтре
+        if (currentUserHouse.isNotBlank()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "🏠 $currentUserHouse",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "${filteredAdverts.size} объявлений",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+        }
+
         // Список товаров
-        if (adverts.isEmpty()) {
+        if (currentUser == null) {
+            // Пользователь не авторизован
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Icon(
+                        Icons.Default.PersonOff,
+                        contentDescription = "Не авторизован",
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.outline
+                    )
+                    Text("Войдите, чтобы видеть объявления")
+                }
+            }
+        } else if (filteredAdverts.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -106,21 +172,21 @@ fun MarketplaceScreen() {
                 ) {
                     Icon(
                         if (favoritesViewModel.showFavoritesOnly) Icons.Outlined.FavoriteBorder
-                        else Icons.Default.SearchOff,
+                        else Icons.Default.Home,
                         contentDescription = "Нет товаров",
                         modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.outline
                     )
                     Text(
                         text = if (favoritesViewModel.showFavoritesOnly)
-                            "Нет избранных товаров"
-                        else "Товаров не найдено",
+                            "Нет избранных товаров в вашем доме"
+                        else "В вашем доме пока нет объявлений",
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
                         text = if (favoritesViewModel.showFavoritesOnly)
-                            "Нажимайте ❤️ на товарах чтобы добавить их сюда"
-                        else "Попробуйте изменить фильтры",
+                            "Добавляйте товары в избранное ❤️"
+                        else "Будьте первым, кто разместит объявление!",
                         color = MaterialTheme.colorScheme.outline
                     )
                 }
@@ -131,7 +197,7 @@ fun MarketplaceScreen() {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(16.dp)
             ) {
-                items(adverts) { advert ->
+                items(filteredAdverts) { advert ->
                     AdvertCard(
                         advert = advert,
                         onFavoriteClick = {
@@ -343,5 +409,5 @@ fun CategoryFilterItem(
         }
     }
 
-    Divider(modifier = Modifier.padding(vertical = 4.dp))
+    androidx.compose.material3.Divider(modifier = Modifier.padding(vertical = 4.dp))
 }
