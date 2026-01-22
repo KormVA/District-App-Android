@@ -25,7 +25,7 @@ import com.example.district.viewmodels.FavoritesViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MarketplaceScreen() {
-    val favoritesViewModel: FavoritesViewModel = viewModel()
+    val favoritesViewModel = FavoritesViewModel(LocalContext.current)
     val context = LocalContext.current
     val auth = SecureAuth(context)
     var showFilter by remember { mutableStateOf(false) }
