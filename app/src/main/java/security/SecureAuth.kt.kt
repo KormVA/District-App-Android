@@ -36,17 +36,18 @@ class SecureAuth(private val context: Context) {
         )
     }
 
-    // РЕГИСТРАЦИЯ нового пользователя
+    // РЕГИСТРАЦИЯ нового пользователя (ФИКСИРОВАННАЯ)
     fun registerUser(login: String, password: String, displayName: String, house: String): Boolean {
         if (password.length < 6) return false
 
         val salt = generateSalt()
         val hash = hashPassword(password, salt)
 
+        // Ключем теперь будет login_пароль, а не просто password_hash
         sharedPrefs.edit()
-            .putString("password_hash", hash)
-            .putString("salt", salt)
-            .putString("user_login", login)
+            .putString("${login}_password_hash", hash)  // ← ФИКС: у каждого свой пароль
+            .putString("${login}_salt", salt)           // ← ФИКС: у каждого своя соль
+            .putString("user_login", login)             // ← запоминаем кто сейчас вошёл
             .putString("user_display_name", displayName)
             .putString("user_house", house)
             .apply()
@@ -54,48 +55,75 @@ class SecureAuth(private val context: Context) {
         return true
     }
 
-    // ВХОД (исправленный - создаёт профиль для admin)
+    // ВХОД (ФИКСИРОВАННЫЙ - проверяет любого пользователя)
     fun checkPassword(login: String, password: String): Boolean {
-        val storedHash = sharedPrefs.getString("password_hash", null)
-        val salt = sharedPrefs.getString("salt", null)
+        // 1. Если это первый запуск приложения - создаём admin
+        val isFirstLaunch = sharedPrefs.getString("admin_password_hash", null) == null
 
-        // Если это первый запуск приложения
-        if (storedHash == null || salt == null) {
+        if (isFirstLaunch && login == "admin") {
             // Создаём дефолтного пользователя admin
             val newSalt = generateSalt()
             val newHash = hashPassword("admin123", newSalt)
 
             sharedPrefs.edit()
-                .putString("password_hash", newHash)
-                .putString("salt", newSalt)
-                .putString("user_login", "admin")
+                .putString("admin_password_hash", newHash)  // ← пароль для admin
+                .putString("admin_salt", newSalt)
+                .putString("user_login", "admin")           // ← сразу логинимся как admin
                 .putString("user_display_name", "Администратор")
-                .putString("user_house", "ул. Ленина, 10") // Дом по умолчанию
+                .putString("user_house", "ул. Ленина, 10")
                 .apply()
 
-            return login == "admin" && password == "admin123"
+            return password == "admin123"
         }
 
-        // Проверяем пароль
-        val inputHash = hashPassword(password, salt)
-        val isValid = login == "admin" && inputHash == storedHash
+        // 2. Проверяем пароль для конкретного пользователя
+        val storedHash = sharedPrefs.getString("${login}_password_hash", null)
+        val salt = sharedPrefs.getString("${login}_salt", null)
 
-        // Если вход успешен как admin, но профиля нет - создаём
-        if (isValid && login == "admin") {
-            val currentUser = sharedPrefs.getString("user_login", null)
-            if (currentUser == null) {
-                sharedPrefs.edit()
-                    .putString("user_login", "admin")
-                    .putString("user_display_name", "Администратор")
-                    .putString("user_house", "ул. Ленина, 10")
-                    .apply()
+        // Если это admin (у него особый ключ)
+        if (login == "admin") {
+            val adminHash = sharedPrefs.getString("admin_password_hash", null)
+            val adminSalt = sharedPrefs.getString("admin_salt", null)
+
+            if (adminHash != null && adminSalt != null) {
+                val inputHash = hashPassword(password, adminSalt)
+                if (inputHash == adminHash) {
+                    // Записываем что сейчас вошёл admin
+                    sharedPrefs.edit()
+                        .putString("user_login", "admin")
+                        .putString("user_display_name", "Администратор")
+                        .putString("user_house", "ул. Ленина, 10")
+                        .apply()
+                    return true
+                }
             }
+            return false
         }
 
-        return isValid
+        // 3. Для обычных пользователей
+        if (storedHash == null || salt == null) {
+            return false  // пользователь не найден
+        }
+
+        val inputHash = hashPassword(password, salt)
+        if (inputHash == storedHash) {
+            // Записываем что этот пользователь вошёл
+            val displayName = sharedPrefs.getString("${login}_display_name", login)
+            val house = sharedPrefs.getString("${login}_house", "")
+
+            sharedPrefs.edit()
+                .putString("user_login", login)
+                .putString("user_display_name", displayName ?: login)
+                .putString("user_house", house ?: "")
+                .apply()
+
+            return true
+        }
+
+        return false
     }
 
-    // ПОЛУЧИТЬ текущего пользователя
+    // ПОЛУЧИТЬ текущего пользователя (без изменений)
     fun getCurrentUser(): UserProfile? {
         val login = sharedPrefs.getString("user_login", null) ?: return null
         val displayName = sharedPrefs.getString("user_display_name", "") ?: ""
@@ -109,7 +137,7 @@ class SecureAuth(private val context: Context) {
         )
     }
 
-    // ВЫЙТИ
+    // ВЫЙТИ (без изменений)
     fun logout() {
         sharedPrefs.edit()
             .remove("user_login")
@@ -118,23 +146,14 @@ class SecureAuth(private val context: Context) {
             .apply()
     }
 
-    // УСТАНОВИТЬ пароль (старый метод, оставлен для совместимости)
+    // УСТАНОВИТЬ пароль (старый метод, можно удалить)
+    @Deprecated("Используйте registerUser")
     fun setupPassword(password: String): Boolean {
-        if (password.length < 6) return false
-        val salt = generateSalt()
-        val hash = hashPassword(password, salt)
-        sharedPrefs.edit()
-            .putString("password_hash", hash)
-            .putString("salt", salt)
-            .apply()
-        return true
+        return registerUser("admin", password, "Администратор", "ул. Ленина, 10")
     }
 
-    // ОЧИСТИТЬ пароль
-    fun clearPassword() {
-        sharedPrefs.edit()
-            .remove("password_hash")
-            .remove("salt")
-            .apply()
+    // ОЧИСТИТЬ ВСЁ (для тестов)
+    fun clearAll() {
+        sharedPrefs.edit().clear().apply()
     }
 }
