@@ -20,16 +20,21 @@ import com.example.district.models.Advert
 import com.example.district.models.Category
 import com.example.district.security.SecureAuth
 import com.example.district.viewmodels.FavoritesViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.district.viewmodels.FavoritesViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MarketplaceScreen() {
-    val favoritesViewModel = FavoritesViewModel(LocalContext.current)
+    val favoritesViewModel: FavoritesViewModel = viewModel(
+        factory = FavoritesViewModelFactory(LocalContext.current)
+    )
     val context = LocalContext.current
     val auth = SecureAuth(context)
     var showFilter by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
-    var selectedAdvert by remember { mutableStateOf<Advert?>(null) } // ← НОВАЯ ПЕРЕМЕННАЯ!
+    var selectedAdvert by remember { mutableStateOf<Advert?>(null) }
+    var showCreateScreen by remember { mutableStateOf(false) } // ← НОВАЯ ПЕРЕМЕННАЯ
 
     // Получаем текущего пользователя и его дом
     val currentUser = auth.getCurrentUser()
@@ -40,175 +45,191 @@ fun MarketplaceScreen() {
 
     // Фильтруем: сначала по дому, потом по категориям/избранному
     val filteredAdverts = allAdverts.filter { advert ->
-        // 1. Фильтр по дому (самый важный!)
-        advert.house == currentUserHouse &&
-                // 2. Фильтр по категории (если выбрана)
-                (selectedCategory == null ||
-                        selectedCategory == "Все товары" ||
-                        advert.category == selectedCategory) &&
-                // 3. Фильтр по избранному (если включён)
+        // 1. Фильтр по категории (если выбрана)
+        (selectedCategory == null ||
+                selectedCategory == "Все товары" ||
+                advert.category == selectedCategory) &&
+                // 2. Фильтр по избранному (если включён)
                 (!favoritesViewModel.showFavoritesOnly || advert.isFavorite)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 56.dp)
-    ) {
-        // Заголовок и кнопки
-        TopAppBar(
-            title = {
-                // Показываем дом пользователя в заголовке
-                Text(
-                    text = if (favoritesViewModel.showFavoritesOnly)
-                        "⭐ Избранное в ${currentUserHouse.takeIf { it.isNotBlank() } ?: "вашем доме"}"
-                    else if (currentUserHouse.isNotBlank())
-                        "District • $currentUserHouse"
-                    else
-                        "District Товары",
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-            },
-            actions = {
-                // Кнопка избранного с бейджем
-                Box(
-                    modifier = Modifier
-                        .wrapContentSize()
-                ) {
-                    IconButton(
-                        onClick = { favoritesViewModel.toggleShowFavorites() }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 56.dp)
+        ) {
+            // Заголовок и кнопки
+            TopAppBar(
+                title = {
+                    // Показываем дом пользователя в заголовке
+                    Text(
+                        text = if (favoritesViewModel.showFavoritesOnly)
+                            "⭐ Избранное в ${currentUserHouse.takeIf { it.isNotBlank() } ?: "вашем доме"}"
+                        else if (currentUserHouse.isNotBlank())
+                            "District • $currentUserHouse"
+                        else
+                            "District Товары",
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                },
+                actions = {
+                    // Кнопка избранного с бейджем
+                    Box(
+                        modifier = Modifier
+                            .wrapContentSize()
                     ) {
-                        Icon(
-                            if (favoritesViewModel.showFavoritesOnly) Icons.Filled.Favorite
-                            else Icons.Outlined.FavoriteBorder,
-                            contentDescription = "Избранное",
-                            tint = if (favoritesViewModel.showFavoritesOnly)
-                                MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    // Бейдж количества избранных
-                    val favoritesCount = favoritesViewModel.allAdverts.count { it.isFavorite }
-                    if (favoritesCount > 0) {
-                        Badge(
-                            modifier = Modifier.align(Alignment.TopEnd)
+                        IconButton(
+                            onClick = { favoritesViewModel.toggleShowFavorites() }
                         ) {
-                            Text(favoritesCount.toString())
+                            Icon(
+                                if (favoritesViewModel.showFavoritesOnly) Icons.Filled.Favorite
+                                else Icons.Outlined.FavoriteBorder,
+                                contentDescription = "Избранное",
+                                tint = if (favoritesViewModel.showFavoritesOnly)
+                                    MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        // Бейдж количества избранных
+                        val favoritesCount = favoritesViewModel.allAdverts.count { it.isFavorite }
+                        if (favoritesCount > 0) {
+                            Badge(
+                                modifier = Modifier.align(Alignment.TopEnd)
+                            ) {
+                                Text(favoritesCount.toString())
+                            }
                         }
                     }
-                }
 
-                // Кнопка фильтра
-                IconButton(
-                    onClick = { showFilter = !showFilter }
-                ) {
-                    Icon(Icons.Default.FilterList, contentDescription = "Фильтры")
-                }
-            }
-        )
-
-        // Фильтр категорий
-        if (showFilter) {
-            FilterCategories(
-                selectedCategory = selectedCategory,
-                onCategorySelected = {
-                    selectedCategory = if (it == "Все товары") null else it
-                    showFilter = false
+                    // Кнопка фильтра
+                    IconButton(
+                        onClick = { showFilter = !showFilter }
+                    ) {
+                        Icon(Icons.Default.FilterList, contentDescription = "Фильтры")
+                    }
                 }
             )
-        }
 
-        // Информация о текущем фильтре
-        if (currentUserHouse.isNotBlank()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "🏠 $currentUserHouse",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "${filteredAdverts.size} объявлений",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
+            // Фильтр категорий
+            if (showFilter) {
+                FilterCategories(
+                    selectedCategory = selectedCategory,
+                    onCategorySelected = {
+                        selectedCategory = if (it == "Все товары") null else it
+                        showFilter = false
+                    }
                 )
             }
-        }
 
-        // Список товаров
-        if (currentUser == null) {
-            // Пользователь не авторизован
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+            // Информация о текущем фильтре
+            if (currentUserHouse.isNotBlank()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        Icons.Default.PersonOff,
-                        contentDescription = "Не авторизован",
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.outline
-                    )
-                    Text("Войдите, чтобы видеть объявления")
-                }
-            }
-        } else if (filteredAdverts.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Icon(
-                        if (favoritesViewModel.showFavoritesOnly) Icons.Outlined.FavoriteBorder
-                        else Icons.Default.Home,
-                        contentDescription = "Нет товаров",
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.outline
+                    Text(
+                        text = "🏠 $currentUserHouse",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = if (favoritesViewModel.showFavoritesOnly)
-                            "Нет избранных товаров в вашем доме"
-                        else "В вашем доме пока нет объявлений",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = if (favoritesViewModel.showFavoritesOnly)
-                            "Добавляйте товары в избранное ❤️"
-                        else "Будьте первым, кто разместит объявление!",
+                        text = "${filteredAdverts.size} объявлений",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(16.dp)
-            ) {
-                items(filteredAdverts) { advert ->
-                    AdvertCard(
-                        advert = advert,
-                        onFavoriteClick = {
-                            favoritesViewModel.toggleFavorite(advert.id)
-                        },
-                        onAdvertClick = {
-                            selectedAdvert = advert  // ← ЗАПОМИНАЕМ выбранное объявление
-                        },
-                        isFavorite = favoritesViewModel.isFavorite(advert.id)
-                    )
+
+            // Список товаров
+            if (currentUser == null) {
+                // Пользователь не авторизован
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.PersonOff,
+                            contentDescription = "Не авторизован",
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.outline
+                        )
+                        Text("Войдите, чтобы видеть объявления")
+                    }
                 }
+            } else if (filteredAdverts.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Icon(
+                            if (favoritesViewModel.showFavoritesOnly) Icons.Outlined.FavoriteBorder
+                            else Icons.Default.Home,
+                            contentDescription = "Нет товаров",
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.outline
+                        )
+                        Text(
+                            text = if (favoritesViewModel.showFavoritesOnly)
+                                "Нет избранных товаров в вашем доме"
+                            else "В вашем доме пока нет объявлений",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = if (favoritesViewModel.showFavoritesOnly)
+                                "Добавляйте товары в избранное ❤️"
+                            else "Будьте первым, кто разместит объявление!",
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(16.dp)
+                ) {
+                    items(filteredAdverts) { advert ->
+                        AdvertCard(
+                            advert = advert,
+                            onFavoriteClick = {
+                                favoritesViewModel.toggleFavorite(advert.id)
+                            },
+                            onAdvertClick = {
+                                selectedAdvert = advert
+                            },
+                            isFavorite = favoritesViewModel.isFavorite(advert.id)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Кнопка "+" для создания объявления
+        if (currentUser != null) {
+            FloatingActionButton(
+                onClick = {
+                    showCreateScreen = true
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Создать объявление")
             }
         }
     }
@@ -229,19 +250,35 @@ fun MarketplaceScreen() {
             )
         }
     }
+
+    // Показываем экран создания объявления
+    if (showCreateScreen) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CreateAdvertScreen(
+                onBack = { showCreateScreen = false },
+                onCreateSuccess = {
+                    showCreateScreen = false
+                },
+                favoritesViewModel = favoritesViewModel
+            )
+        }
+    }
 }
 
 @Composable
 fun AdvertCard(
     advert: Advert,
     onFavoriteClick: () -> Unit,
-    onAdvertClick: () -> Unit,  // ← НОВЫЙ ПАРАМЕТР!
+    onAdvertClick: () -> Unit,
     isFavorite: Boolean
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onAdvertClick),  // ← ТЕПЕРЬ ОТКРЫВАЕМ ДЕТАЛИ
+            .clickable(onClick = onAdvertClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface

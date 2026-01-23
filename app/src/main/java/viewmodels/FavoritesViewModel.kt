@@ -26,7 +26,7 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
         )
     }
 
-    // Все товары
+    // Все товары - ОБНОВЛЯЕМОЕ СОСТОЯНИЕ
     private val _allAdverts = mutableStateListOf<Advert>()
     val allAdverts: List<Advert> get() = _allAdverts
 
@@ -76,7 +76,7 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
                 author = "Алексей",
                 phone = "+7 (999) 123-45-67",
                 date = "17 янв",
-                isFavorite = favoriteIds.contains(1),  // ← восстанавливаем состояние!
+                isFavorite = favoriteIds.contains(1),
                 house = "ул. Ленина, 10"
             ),
             Advert(
@@ -177,4 +177,28 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
             _allAdverts[i] = _allAdverts[i].copy(isFavorite = false)
         }
     }
+
+    // ДОБАВЛЯЕМ НОВОЕ ОБЪЯВЛЕНИЕ - ИСПРАВЛЕННЫЙ МЕТОД
+    fun addNewAdvert(advert: Advert) {
+        // ДЕЛАЕМ КОПИЮ и добавляем в начало
+        val newAdvert = advert.copy()
+
+        // Логирование для отладки
+        println("🟢 FavoritesViewModel.addNewAdvert() вызван!")
+        println("   Новое объявление: ${newAdvert.title}")
+        println("   Дом: '${newAdvert.house}'")
+        println("   До добавления: ${_allAdverts.size} объявлений")
+
+        // Добавляем в НАЧАЛО списка
+        _allAdverts.add(0, newAdvert)
+
+        println("   После добавления: ${_allAdverts.size} объявлений")
+        println("   Теперь первое: ${_allAdverts.firstOrNull()?.title}")
+        println("   Все ID: ${_allAdverts.map { it.id }}")
+    }
+
+    // ПРОСТОЙ МЕТОД ДЛЯ ПРОВЕРКИ
+    fun getAdvertsCount(): Int = _allAdverts.size
+
+    fun getFirstAdvertTitle(): String = _allAdverts.firstOrNull()?.title ?: "Нет объявлений"
 }
