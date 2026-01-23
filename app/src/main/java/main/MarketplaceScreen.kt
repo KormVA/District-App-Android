@@ -16,11 +16,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.district.models.Advert
 import com.example.district.models.Category
 import com.example.district.security.SecureAuth
 import com.example.district.viewmodels.FavoritesViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.district.viewmodels.FavoritesViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,7 +34,7 @@ fun MarketplaceScreen() {
     var showFilter by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var selectedAdvert by remember { mutableStateOf<Advert?>(null) }
-    var showCreateScreen by remember { mutableStateOf(false) } // ← НОВАЯ ПЕРЕМЕННАЯ
+    var showCreateScreen by remember { mutableStateOf(false) }
 
     // Получаем текущего пользователя и его дом
     val currentUser = auth.getCurrentUser()
@@ -45,11 +45,13 @@ fun MarketplaceScreen() {
 
     // Фильтруем: сначала по дому, потом по категориям/избранному
     val filteredAdverts = allAdverts.filter { advert ->
-        // 1. Фильтр по категории (если выбрана)
-        (selectedCategory == null ||
-                selectedCategory == "Все товары" ||
-                advert.category == selectedCategory) &&
-                // 2. Фильтр по избранному (если включён)
+        // 1. Фильтр по дому (самый важный!) ← ВОТ ОН!
+        (currentUserHouse.isBlank() || advert.house == currentUserHouse) &&
+                // 2. Фильтр по категории (если выбрана)
+                (selectedCategory == null ||
+                        selectedCategory == "Все товары" ||
+                        advert.category == selectedCategory) &&
+                // 3. Фильтр по избранному (если включён)
                 (!favoritesViewModel.showFavoritesOnly || advert.isFavorite)
     }
 

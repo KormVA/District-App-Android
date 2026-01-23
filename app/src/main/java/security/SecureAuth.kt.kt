@@ -36,51 +36,45 @@ class SecureAuth(private val context: Context) {
         )
     }
 
-    // РЕГИСТРАЦИЯ нового пользователя (ФИКСИРОВАННАЯ)
+    // РЕГИСТРАЦИЯ нового пользователя
     fun registerUser(login: String, password: String, displayName: String, house: String): Boolean {
         if (password.length < 6) return false
 
         val salt = generateSalt()
         val hash = hashPassword(password, salt)
 
-        // Ключем теперь будет login_пароль, а не просто password_hash
+        // Сохраняем ВСЕ данные пользователя под его логином
         sharedPrefs.edit()
-            .putString("${login}_password_hash", hash)  // ← ФИКС: у каждого свой пароль
-            .putString("${login}_salt", salt)           // ← ФИКС: у каждого своя соль
-            .putString("user_login", login)             // ← запоминаем кто сейчас вошёл
-            .putString("user_display_name", displayName)
-            .putString("user_house", house)
+            .putString("${login}_password_hash", hash)
+            .putString("${login}_salt", salt)
+            .putString("${login}_display_name", displayName)
+            .putString("${login}_house", house)  // ← ВАЖНО: дом под ключом ${login}_house
             .apply()
 
+        // И сразу логиним его
+        loginUser(login, displayName, house)
         return true
     }
 
-    // ВХОД (ФИКСИРОВАННЫЙ - проверяет любого пользователя)
+    // ВХОД
     fun checkPassword(login: String, password: String): Boolean {
         // 1. Если это первый запуск приложения - создаём admin
         val isFirstLaunch = sharedPrefs.getString("admin_password_hash", null) == null
 
         if (isFirstLaunch && login == "admin") {
-            // Создаём дефолтного пользователя admin
             val newSalt = generateSalt()
             val newHash = hashPassword("admin123", newSalt)
 
             sharedPrefs.edit()
-                .putString("admin_password_hash", newHash)  // ← пароль для admin
+                .putString("admin_password_hash", newHash)
                 .putString("admin_salt", newSalt)
-                .putString("user_login", "admin")           // ← сразу логинимся как admin
-                .putString("user_display_name", "Администратор")
-                .putString("user_house", "ул. Ленина, 10")
                 .apply()
 
+            loginUser("admin", "Администратор", "ул. Ленина, 10")
             return password == "admin123"
         }
 
-        // 2. Проверяем пароль для конкретного пользователя
-        val storedHash = sharedPrefs.getString("${login}_password_hash", null)
-        val salt = sharedPrefs.getString("${login}_salt", null)
-
-        // Если это admin (у него особый ключ)
+        // 2. Проверяем admin
         if (login == "admin") {
             val adminHash = sharedPrefs.getString("admin_password_hash", null)
             val adminSalt = sharedPrefs.getString("admin_salt", null)
@@ -88,42 +82,44 @@ class SecureAuth(private val context: Context) {
             if (adminHash != null && adminSalt != null) {
                 val inputHash = hashPassword(password, adminSalt)
                 if (inputHash == adminHash) {
-                    // Записываем что сейчас вошёл admin
-                    sharedPrefs.edit()
-                        .putString("user_login", "admin")
-                        .putString("user_display_name", "Администратор")
-                        .putString("user_house", "ул. Ленина, 10")
-                        .apply()
+                    loginUser("admin", "Администратор", "ул. Ленина, 10")
                     return true
                 }
             }
             return false
         }
 
-        // 3. Для обычных пользователей
+        // 3. Проверяем обычных пользователей
+        val storedHash = sharedPrefs.getString("${login}_password_hash", null)
+        val salt = sharedPrefs.getString("${login}_salt", null)
+
         if (storedHash == null || salt == null) {
-            return false  // пользователь не найден
+            return false
         }
 
         val inputHash = hashPassword(password, salt)
         if (inputHash == storedHash) {
-            // Записываем что этот пользователь вошёл
+            // Получаем данные пользователя
             val displayName = sharedPrefs.getString("${login}_display_name", login)
-            val house = sharedPrefs.getString("${login}_house", "")
+            val house = sharedPrefs.getString("${login}_house", "")  // ← ЧИТАЕМ ДОМ ИЗ ПРАВИЛЬНОГО МЕСТА!
 
-            sharedPrefs.edit()
-                .putString("user_login", login)
-                .putString("user_display_name", displayName ?: login)
-                .putString("user_house", house ?: "")
-                .apply()
-
+            loginUser(login, displayName ?: login, house ?: "")
             return true
         }
 
         return false
     }
 
-    // ПОЛУЧИТЬ текущего пользователя (без изменений)
+    // Вспомогательный метод для входа пользователя
+    private fun loginUser(login: String, displayName: String, house: String) {
+        sharedPrefs.edit()
+            .putString("user_login", login)
+            .putString("user_display_name", displayName)
+            .putString("user_house", house)  // ← СОХРАНЯЕМ ДОМ!
+            .apply()
+    }
+
+    // ПОЛУЧИТЬ текущего пользователя
     fun getCurrentUser(): UserProfile? {
         val login = sharedPrefs.getString("user_login", null) ?: return null
         val displayName = sharedPrefs.getString("user_display_name", "") ?: ""
@@ -137,19 +133,13 @@ class SecureAuth(private val context: Context) {
         )
     }
 
-    // ВЫЙТИ (без изменений)
+    // ВЫЙТИ
     fun logout() {
         sharedPrefs.edit()
             .remove("user_login")
             .remove("user_display_name")
-            .remove("user_house")
+            // Дом оставляем — он пригодится если пользователь зайдёт снова
             .apply()
-    }
-
-    // УСТАНОВИТЬ пароль (старый метод, можно удалить)
-    @Deprecated("Используйте registerUser")
-    fun setupPassword(password: String): Boolean {
-        return registerUser("admin", password, "Администратор", "ул. Ленина, 10")
     }
 
     // ОЧИСТИТЬ ВСЁ (для тестов)
