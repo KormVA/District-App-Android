@@ -16,7 +16,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.district.models.Advert
 import com.example.district.models.Category
 import com.example.district.security.SecureAuth
@@ -30,6 +29,7 @@ fun MarketplaceScreen() {
     val auth = SecureAuth(context)
     var showFilter by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var selectedAdvert by remember { mutableStateOf<Advert?>(null) } // ← НОВАЯ ПЕРЕМЕННАЯ!
 
     // Получаем текущего пользователя и его дом
     val currentUser = auth.getCurrentUser()
@@ -203,10 +203,30 @@ fun MarketplaceScreen() {
                         onFavoriteClick = {
                             favoritesViewModel.toggleFavorite(advert.id)
                         },
+                        onAdvertClick = {
+                            selectedAdvert = advert  // ← ЗАПОМИНАЕМ выбранное объявление
+                        },
                         isFavorite = favoritesViewModel.isFavorite(advert.id)
                     )
                 }
             }
+        }
+    }
+
+    // Показываем детальный экран если выбрали объявление
+    selectedAdvert?.let { advert ->
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            AdvertDetailScreen(
+                advert = advert,
+                onBack = { selectedAdvert = null },
+                onToggleFavorite = { id ->
+                    favoritesViewModel.toggleFavorite(id)
+                },
+                isFavorite = favoritesViewModel.isFavorite(advert.id)
+            )
         }
     }
 }
@@ -215,12 +235,13 @@ fun MarketplaceScreen() {
 fun AdvertCard(
     advert: Advert,
     onFavoriteClick: () -> Unit,
+    onAdvertClick: () -> Unit,  // ← НОВЫЙ ПАРАМЕТР!
     isFavorite: Boolean
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { /* Открыть детали */ },
+            .clickable(onClick = onAdvertClick),  // ← ТЕПЕРЬ ОТКРЫВАЕМ ДЕТАЛИ
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
