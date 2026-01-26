@@ -35,6 +35,8 @@ fun MarketplaceScreen() {
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var selectedAdvert by remember { mutableStateOf<Advert?>(null) }
     var showCreateScreen by remember { mutableStateOf(false) }
+    var showEditScreen by remember { mutableStateOf(false) } // ← НОВОЕ
+    var advertToEdit by remember { mutableStateOf<Advert?>(null) } // ← НОВОЕ
 
     // Получаем текущего пользователя и его дом
     val currentUser = auth.getCurrentUser()
@@ -45,7 +47,7 @@ fun MarketplaceScreen() {
 
     // Фильтруем: сначала по дому, потом по категориям/избранному
     val filteredAdverts = allAdverts.filter { advert ->
-        // 1. Фильтр по дому (самый важный!) ← ВОТ ОН!
+        // 1. Фильтр по дому (самый важный!)
         (currentUserHouse.isBlank() || advert.house == currentUserHouse) &&
                 // 2. Фильтр по категории (если выбрана)
                 (selectedCategory == null ||
@@ -204,6 +206,9 @@ fun MarketplaceScreen() {
                     contentPadding = PaddingValues(16.dp)
                 ) {
                     items(filteredAdverts) { advert ->
+                        // Проверяем, может ли пользователь редактировать это объявление
+                        val canEdit = auth.isCurrentUserOwner(advert.ownerLogin)
+
                         AdvertCard(
                             advert = advert,
                             onFavoriteClick = {
@@ -212,7 +217,12 @@ fun MarketplaceScreen() {
                             onAdvertClick = {
                                 selectedAdvert = advert
                             },
-                            isFavorite = favoritesViewModel.isFavorite(advert.id)
+                            onEditClick = { // ← НОВАЯ КНОПКА РЕДАКТИРОВАНИЯ
+                                advertToEdit = advert
+                                showEditScreen = true
+                            },
+                            isFavorite = favoritesViewModel.isFavorite(advert.id),
+                            canEdit = canEdit // ← ПЕРЕДАЕМ В КАРТОЧКУ
                         )
                     }
                 }
@@ -238,35 +248,55 @@ fun MarketplaceScreen() {
 
     // Показываем детальный экран если выбрали объявление
     selectedAdvert?.let { advert ->
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            AdvertDetailScreen(
-                advert = advert,
-                onBack = { selectedAdvert = null },
-                onToggleFavorite = { id ->
-                    favoritesViewModel.toggleFavorite(id)
-                },
-                isFavorite = favoritesViewModel.isFavorite(advert.id)
-            )
-        }
+        val canEdit = auth.isCurrentUserOwner(advert.ownerLogin)
+
+        AdvertDetailScreen(
+            advert = advert,
+            onBack = { selectedAdvert = null },
+            onToggleFavorite = { id ->
+                favoritesViewModel.toggleFavorite(id)
+            },
+            isFavorite = favoritesViewModel.isFavorite(advert.id),
+            onEdit = { // ← НОВАЯ КНОПКА РЕДАКТИРОВАНИЯ
+                advertToEdit = advert
+                showEditScreen = true
+                selectedAdvert = null // Закрываем детальный экран
+            },
+            canEdit = canEdit
+        )
     }
 
     // Показываем экран создания объявления
     if (showCreateScreen) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            CreateAdvertScreen(
-                onBack = { showCreateScreen = false },
-                onCreateSuccess = {
-                    showCreateScreen = false
-                },
-                favoritesViewModel = favoritesViewModel
-            )
-        }
+        AdvertEditorScreen(
+            advert = null, // Создание нового
+            onBack = { showCreateScreen = false },
+            onSave = { newAdvert ->
+                showCreateScreen = false
+                // Можно показать уведомление
+            },
+            favoritesViewModel = favoritesViewModel
+        )
+    }
+
+    // Показываем экран редактирования объявления
+    if (showEditScreen && advertToEdit != null) {
+        AdvertEditorScreen(
+            advert = advertToEdit, // Редактирование существующего
+            onBack = {
+                showEditScreen = false
+                advertToEdit = null
+            },
+            onSave = { updatedAdvert ->
+                showEditScreen = false
+                advertToEdit = null
+                // Обновляем выбранное объявление если оно открыто
+                if (selectedAdvert?.id == updatedAdvert.id) {
+                    selectedAdvert = updatedAdvert
+                }
+            },
+            favoritesViewModel = favoritesViewModel
+        )
     }
 }
 
@@ -275,7 +305,9 @@ fun AdvertCard(
     advert: Advert,
     onFavoriteClick: () -> Unit,
     onAdvertClick: () -> Unit,
-    isFavorite: Boolean
+    onEditClick: () -> Unit, // ← НОВЫЙ ПАРАМЕТР
+    isFavorite: Boolean,
+    canEdit: Boolean // ← НОВЫЙ ПАРАМЕТР
 ) {
     Card(
         modifier = Modifier
@@ -329,18 +361,39 @@ fun AdvertCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Категория (теперь показываем как тег)
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.align(Alignment.Start)
+            // Категория и кнопка редактирования (если можно)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = advert.category,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
+                // Категория
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                ) {
+                    Text(
+                        text = advert.category,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+
+                // Кнопка редактирования (только для владельца)
+                if (canEdit) {
+                    IconButton(
+                        onClick = onEditClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Редактировать",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))

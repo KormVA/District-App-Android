@@ -27,7 +27,9 @@ fun AdvertDetailScreen(
     advert: Advert,
     onBack: () -> Unit,
     onToggleFavorite: (Int) -> Unit,
-    isFavorite: Boolean
+    isFavorite: Boolean,
+    onEdit: () -> Unit, // ← НОВЫЙ ПАРАМЕТР
+    canEdit: Boolean // ← НОВЫЙ ПАРАМЕТР
 ) {
     val scrollState = rememberScrollState()
     var showPhone by remember { mutableStateOf(false) }
@@ -42,6 +44,20 @@ fun AdvertDetailScreen(
                     }
                 },
                 actions = {
+                    // Кнопка редактирования (только если можно)
+                    if (canEdit) {
+                        IconButton(
+                            onClick = onEdit
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Редактировать",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    // Кнопка избранного
                     IconButton(
                         onClick = { onToggleFavorite(advert.id) }
                     ) {
@@ -190,6 +206,14 @@ fun AdvertDetailScreen(
                             color = MaterialTheme.colorScheme.outline,
                             fontSize = 14.sp
                         )
+                        // Показываем, если это ваше объявление
+                        if (canEdit) {
+                            Text(
+                                text = "Ваше объявление",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
 

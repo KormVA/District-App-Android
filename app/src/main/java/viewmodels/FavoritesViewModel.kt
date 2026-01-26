@@ -49,7 +49,11 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
             val savedIds = sharedPrefs.getStringSet("favorite_ids", emptySet()) ?: emptySet()
             favoriteIds.clear()
             savedIds.forEach {
-                favoriteIds.add(it.toInt())
+                try {
+                    favoriteIds.add(it.toInt())
+                } catch (e: NumberFormatException) {
+                    // Пропускаем некорректные ID
+                }
             }
         }
     }
@@ -64,7 +68,7 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    // Загружаем примерные объявления
+    // Загружаем примерные объявления - ОБНОВЛЕНО с ownerLogin
     private fun loadSampleAdverts() {
         val adverts = listOf(
             Advert(
@@ -77,7 +81,9 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
                 phone = "+7 (999) 123-45-67",
                 date = "17 янв",
                 isFavorite = favoriteIds.contains(1),
-                house = "ул. Ленина, 10"
+                house = "ул. Ленина, 10",
+                ownerLogin = "alex", // ← ДОБАВЛЕНО
+                canEdit = false
             ),
             Advert(
                 id = 2,
@@ -89,7 +95,9 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
                 phone = "+7 (999) 765-43-21",
                 date = "16 янв",
                 isFavorite = favoriteIds.contains(2),
-                house = "ул. Ленина, 10"
+                house = "ул. Ленина, 10",
+                ownerLogin = "maria", // ← ДОБАВЛЕНО
+                canEdit = false
             ),
             Advert(
                 id = 3,
@@ -101,7 +109,9 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
                 phone = "+7 (999) 111-22-33",
                 date = "15 янв",
                 isFavorite = favoriteIds.contains(3),
-                house = "ул. Ленина, 12"
+                house = "ул. Ленина, 12",
+                ownerLogin = "dmitry", // ← ДОБАВЛЕНО
+                canEdit = false
             ),
             Advert(
                 id = 4,
@@ -113,7 +123,9 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
                 phone = "+7 (999) 444-55-66",
                 date = "14 янв",
                 isFavorite = favoriteIds.contains(4),
-                house = "ул. Ленина, 12"
+                house = "ул. Ленина, 12",
+                ownerLogin = "sergey", // ← ДОБАВЛЕНО
+                canEdit = false
             ),
             Advert(
                 id = 5,
@@ -125,7 +137,9 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
                 phone = "+7 (999) 777-88-99",
                 date = "13 янв",
                 isFavorite = favoriteIds.contains(5),
-                house = "ул. Ленина, 10"
+                house = "ул. Ленина, 10",
+                ownerLogin = "olga", // ← ДОБАВЛЕНО
+                canEdit = false
             )
         )
 
@@ -197,8 +211,48 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
         println("   Все ID: ${_allAdverts.map { it.id }}")
     }
 
+    // НОВАЯ ФУНКЦИЯ: Обновить объявление
+    fun updateAdvert(updatedAdvert: Advert) {
+        val index = _allAdverts.indexOfFirst { it.id == updatedAdvert.id }
+        if (index != -1) {
+            println("🟡 FavoritesViewModel.updateAdvert() - обновляем ID ${updatedAdvert.id}")
+            println("   Старый заголовок: ${_allAdverts[index].title}")
+            println("   Новый заголовок: ${updatedAdvert.title}")
+
+            // Сохраняем состояние избранного из старого объявления
+            val wasFavorite = _allAdverts[index].isFavorite
+            _allAdverts[index] = updatedAdvert.copy(isFavorite = wasFavorite)
+
+            println("   Успешно обновлено!")
+        } else {
+            println("🔴 FavoritesViewModel.updateAdvert() - объявление с ID ${updatedAdvert.id} не найдено!")
+        }
+    }
+
+    // НОВАЯ ФУНКЦИЯ: Удалить объявление
+    fun removeAdvert(advertId: Int) {
+        println("🔴 FavoritesViewModel.removeAdvert() - удаляем ID $advertId")
+        println("   До удаления: ${_allAdverts.size} объявлений")
+
+        val removed = _allAdverts.removeAll { it.id == advertId }
+
+        // Также удаляем из избранного если нужно
+        if (favoriteIds.contains(advertId)) {
+            favoriteIds.remove(advertId)
+            saveFavoritesToStorage()
+        }
+
+        println("   После удаления: ${_allAdverts.size} объявлений")
+        println("   Удаление ${if (removed) "успешно" else "не удалось"}")
+    }
+
     // ПРОСТОЙ МЕТОД ДЛЯ ПРОВЕРКИ
     fun getAdvertsCount(): Int = _allAdverts.size
 
     fun getFirstAdvertTitle(): String = _allAdverts.firstOrNull()?.title ?: "Нет объявлений"
+
+    // НОВАЯ ФУНКЦИЯ: Найти объявление по ID
+    fun findAdvertById(advertId: Int): Advert? {
+        return _allAdverts.find { it.id == advertId }
+    }
 }

@@ -48,7 +48,7 @@ class SecureAuth(private val context: Context) {
             .putString("${login}_password_hash", hash)
             .putString("${login}_salt", salt)
             .putString("${login}_display_name", displayName)
-            .putString("${login}_house", house)  // ← ВАЖНО: дом под ключом ${login}_house
+            .putString("${login}_house", house)
             .apply()
 
         // И сразу логиним его
@@ -101,7 +101,7 @@ class SecureAuth(private val context: Context) {
         if (inputHash == storedHash) {
             // Получаем данные пользователя
             val displayName = sharedPrefs.getString("${login}_display_name", login)
-            val house = sharedPrefs.getString("${login}_house", "")  // ← ЧИТАЕМ ДОМ ИЗ ПРАВИЛЬНОГО МЕСТА!
+            val house = sharedPrefs.getString("${login}_house", "")
 
             loginUser(login, displayName ?: login, house ?: "")
             return true
@@ -115,7 +115,7 @@ class SecureAuth(private val context: Context) {
         sharedPrefs.edit()
             .putString("user_login", login)
             .putString("user_display_name", displayName)
-            .putString("user_house", house)  // ← СОХРАНЯЕМ ДОМ!
+            .putString("user_house", house)
             .apply()
     }
 
@@ -133,17 +133,18 @@ class SecureAuth(private val context: Context) {
         )
     }
 
+    // НОВАЯ ФУНКЦИЯ: Проверить, является ли пользователь владельцем объявления
+    fun isCurrentUserOwner(advertOwnerLogin: String): Boolean {
+        val currentUserLogin = sharedPrefs.getString("user_login", null)
+        return currentUserLogin == advertOwnerLogin
+    }
+
     // ВЫЙТИ
     fun logout() {
         sharedPrefs.edit()
             .remove("user_login")
             .remove("user_display_name")
-            // Дом оставляем — он пригодится если пользователь зайдёт снова
             .apply()
     }
-
-    // ОЧИСТИТЬ ВСЁ (для тестов)
-    fun clearAll() {
-        sharedPrefs.edit().clear().apply()
-    }
+    
 }

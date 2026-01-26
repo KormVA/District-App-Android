@@ -13,6 +13,8 @@ data class Advert(
     val imageUrl: String = "", // для будущих фото
     var isFavorite: Boolean = false,
     val house: String, // ← ЗАПЯТАЯ ЗДЕСЬ ОБЯЗАТЕЛЬНА!
+    val ownerLogin: String = "", // ← ДОБАВЛЕНО: логин владельца для проверки
+    var canEdit: Boolean = false // ← ДОБАВЛЕНО: может ли текущий пользователь редактировать
 )
 
 // Категории товаров
