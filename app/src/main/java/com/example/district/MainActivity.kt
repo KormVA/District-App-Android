@@ -125,8 +125,8 @@ fun MainScreen(onLogout: () -> Unit) {
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Person, contentDescription = "Профиль") },
                     label = { Text("Профиль") },
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 }
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 }
                 )
             }
         }
