@@ -23,6 +23,8 @@ import com.example.district.ui.auth.SecureLoginScreen
 import com.example.district.ui.auth.RegisterScreen
 import com.example.district.ui.auth.ProfileScreen
 import com.example.district.ui.main.MarketplaceScreen
+import androidx.compose.material.icons.filled.Announcement  // ← НОВЫЙ ИКОН
+import com.example.district.ui.screens.HouseNewsScreen      // ← НОВЫЙ ЭКРАН
 
 // Модель данных для объявления (пока заглушка)
 data class Advert(
@@ -115,6 +117,12 @@ fun MainScreen(onLogout: () -> Unit) {
                     onClick = { selectedTab = 1 }
                 )
                 NavigationBarItem(
+                    icon = { Icon(Icons.Default.Announcement, contentDescription = "Новости") },
+                    label = { Text("Новости") },
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 }
+                )
+                NavigationBarItem(
                     icon = { Icon(Icons.Default.Person, contentDescription = "Профиль") },
                     label = { Text("Профиль") },
                     selected = selectedTab == 2,
@@ -128,7 +136,8 @@ fun MainScreen(onLogout: () -> Unit) {
             when (selectedTab) {
                 0 -> MarketplaceScreen()
                 1 -> MessagesScreen()
-                2 -> ProfileScreen(onLogout = onLogout)
+                2 -> HouseNewsScreen()    // ← НОВАЯ ВКЛАДКА
+                3 -> ProfileScreen(onLogout = onLogout)  // ← ПРОФИЛЬ СДВИНУЛСЯ НА 3
             }
         }
     }
