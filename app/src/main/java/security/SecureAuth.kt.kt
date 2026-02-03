@@ -58,23 +58,7 @@ class SecureAuth(private val context: Context) {
 
     // ВХОД
     fun checkPassword(login: String, password: String): Boolean {
-        // 1. Если это первый запуск приложения - создаём admin
-        val isFirstLaunch = sharedPrefs.getString("admin_password_hash", null) == null
-
-        if (isFirstLaunch && login == "admin") {
-            val newSalt = generateSalt()
-            val newHash = hashPassword("admin123", newSalt)
-
-            sharedPrefs.edit()
-                .putString("admin_password_hash", newHash)
-                .putString("admin_salt", newSalt)
-                .apply()
-
-            loginUser("admin", "Администратор", "ул. Ленина, 10")
-            return password == "admin123"
-        }
-
-        // 2. Проверяем admin
+        // 1. Проверяем admin (только если настроен)
         if (login == "admin") {
             val adminHash = sharedPrefs.getString("admin_password_hash", null)
             val adminSalt = sharedPrefs.getString("admin_salt", null)
@@ -89,7 +73,7 @@ class SecureAuth(private val context: Context) {
             return false
         }
 
-        // 3. Проверяем обычных пользователей
+        // 2. Проверяем обычных пользователей
         val storedHash = sharedPrefs.getString("${login}_password_hash", null)
         val salt = sharedPrefs.getString("${login}_salt", null)
 
@@ -146,5 +130,4 @@ class SecureAuth(private val context: Context) {
             .remove("user_display_name")
             .apply()
     }
-    
 }
