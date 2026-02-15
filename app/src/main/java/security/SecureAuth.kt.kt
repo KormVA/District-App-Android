@@ -5,6 +5,7 @@ import android.util.Base64
 import android.util.Log
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.Date
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import androidx.security.crypto.EncryptedSharedPreferences
@@ -14,11 +15,14 @@ import com.example.district.models.UserProfile
 class SecureAuth(private val context: Context) {
 
     companion object {
-        // Константы для PBKDF2
-        private const val PBKDF2_ITERATIONS = 310_000  // Рекомендуемое количество итераций для PBKDF2
-        private const val SALT_LENGTH = 16            // Длина соли в байтах
-        private const val HASH_LENGTH = 256           // Длина хэша в битах (32 байта)
+        private const val PBKDF2_ITERATIONS = 310_000
+        private const val SALT_LENGTH = 16
+        private const val HASH_LENGTH = 256
         private const val PBKDF2_ALGORITHM = "PBKDF2WithHmacSHA256"
+
+        // Новые константы для rate limiting
+        private const val BLOCK_TIME = 300_000L // 5 минут
+        private const val MAX_ATTEMPTS = 5
 
         private fun generateSalt(): String {
             val salt = ByteArray(SALT_LENGTH)
@@ -28,26 +32,17 @@ class SecureAuth(private val context: Context) {
 
         fun hashPassword(password: String, salt: String): String {
             try {
-                // Декодируем соль из Base64
                 val saltBytes = Base64.decode(salt, Base64.NO_WRAP)
-
-                // Создаём спецификацию для PBKDF2
                 val spec = PBEKeySpec(
                     password.toCharArray(),
                     saltBytes,
                     PBKDF2_ITERATIONS,
                     HASH_LENGTH
                 )
-
-                // Получаем фабрику и генерируем ключ
                 val factory = SecretKeyFactory.getInstance(PBKDF2_ALGORITHM)
                 val hash = factory.generateSecret(spec).encoded
-
-                // Возвращаем хэш в Base64
                 return Base64.encodeToString(hash, Base64.NO_WRAP)
-
             } catch (e: Exception) {
-                // Логируем ошибку
                 Log.e("SecureAuth", "PBKDF2 failed: ${e.message}", e)
                 throw RuntimeException("Password hashing failed", e)
             }
@@ -65,7 +60,30 @@ class SecureAuth(private val context: Context) {
         )
     }
 
-    // РЕГИСТРАЦИЯ нового пользователя
+    // Новые вспомогательные функции для работы с попытками в SharedPreferences
+    private fun getAttempts(login: String): Int {
+        return sharedPrefs.getInt("${login}_attempts", 0)
+    }
+
+    private fun setAttempts(login: String, attempts: Int) {
+        sharedPrefs.edit().putInt("${login}_attempts", attempts).apply()
+    }
+
+    private fun getLockUntil(login: String): Long {
+        return sharedPrefs.getLong("${login}_lock_until", 0L)
+    }
+
+    private fun setLockUntil(login: String, lockTime: Long) {
+        sharedPrefs.edit().putLong("${login}_lock_until", lockTime).apply()
+    }
+
+    private fun resetAttempts(login: String) {
+        sharedPrefs.edit()
+            .remove("${login}_attempts")
+            .remove("${login}_lock_until")
+            .apply()
+    }
+
     fun registerUser(login: String, password: String, displayName: String, house: String): Boolean {
         if (password.length < 8) {
             Log.w("SecureAuth", "Password too short: ${password.length} chars")
@@ -75,7 +93,6 @@ class SecureAuth(private val context: Context) {
         val salt = generateSalt()
         val hash = hashPassword(password, salt)
 
-        // Сохраняем ВСЕ данные пользователя под его логином
         sharedPrefs.edit()
             .putString("${login}_password_hash", hash)
             .putString("${login}_salt", salt)
@@ -84,15 +101,29 @@ class SecureAuth(private val context: Context) {
             .apply()
 
         Log.d("SecureAuth", "User registered: $login with PBKDF2 hash")
-
-        // И сразу логиним его
         loginUser(login, displayName, house)
         return true
     }
 
-    // ВХОД
     fun checkPassword(login: String, password: String): Boolean {
-        // 1. Проверяем admin (только если настроен)
+        val currentTime = System.currentTimeMillis()
+
+        // ========== 1. ПРОВЕРКА БЛОКИРОВКИ ==========
+        val lockTime = getLockUntil(login)
+        if (lockTime > currentTime) {
+            val remaining = (lockTime - currentTime) / 1000
+            Log.w("SecureAuth", "User $login is blocked for ${remaining} seconds")
+            return false
+        } else if (lockTime > 0) {
+            // Время блокировки истекло — сбрасываем
+            resetAttempts(login)
+            Log.d("SecureAuth", "User $login unblocked")
+        }
+
+        // ========== 2. ПОЛУЧАЕМ ТЕКУЩЕЕ КОЛИЧЕСТВО ПОПЫТОК ==========
+        val attempts = getAttempts(login)
+
+        // ========== 3. АДМИН ==========
         if (login == "admin") {
             val adminHash = sharedPrefs.getString("admin_password_hash", null)
             val adminSalt = sharedPrefs.getString("admin_salt", null)
@@ -100,39 +131,64 @@ class SecureAuth(private val context: Context) {
             if (adminHash != null && adminSalt != null) {
                 val inputHash = hashPassword(password, adminSalt)
                 if (inputHash == adminHash) {
+                    // Сброс при успехе
+                    resetAttempts(login)
                     loginUser("admin", "Администратор", "ул. Ленина, 10")
-                    Log.d("SecureAuth", "Admin login successful with PBKDF2")
+                    Log.d("SecureAuth", "Admin login successful")
                     return true
                 }
+            }
+
+            // Неудача — увеличиваем счётчик
+            val newAttempts = attempts + 1
+            setAttempts(login, newAttempts)
+
+            // Проверяем не превысили ли лимит
+            if (newAttempts >= MAX_ATTEMPTS) {
+                setLockUntil(login, currentTime + BLOCK_TIME)
+                Log.w("SecureAuth", "User $login blocked for 5 minutes (reached $newAttempts failed attempts)")
+            } else {
+                Log.w("SecureAuth", "Admin login failed (attempt $newAttempts/$MAX_ATTEMPTS)")
             }
             return false
         }
 
-        // 2. Проверяем обычных пользователей
+        // ========== 4. ОБЫЧНЫЕ ПОЛЬЗОВАТЕЛИ ==========
         val storedHash = sharedPrefs.getString("${login}_password_hash", null)
         val salt = sharedPrefs.getString("${login}_salt", null)
 
         if (storedHash == null || salt == null) {
-            Log.w("SecureAuth", "User not found or missing credentials: $login")
+            Log.w("SecureAuth", "User not found: $login")
             return false
         }
 
         val inputHash = hashPassword(password, salt)
-        if (inputHash == storedHash) {
-            // Получаем данные пользователя
+        val success = inputHash == storedHash
+
+        if (success) {
+            // Сброс при успехе
+            resetAttempts(login)
             val displayName = sharedPrefs.getString("${login}_display_name", login)
             val house = sharedPrefs.getString("${login}_house", "")
-
             loginUser(login, displayName ?: login, house ?: "")
-            Log.d("SecureAuth", "User login successful: $login with PBKDF2")
+            Log.d("SecureAuth", "Login successful: $login")
             return true
-        }
+        } else {
+            // Неудача — увеличиваем счётчик
+            val newAttempts = attempts + 1
+            setAttempts(login, newAttempts)
 
-        Log.w("SecureAuth", "Password mismatch for user: $login")
-        return false
+            // Проверяем не превысили ли лимит
+            if (newAttempts >= MAX_ATTEMPTS) {
+                setLockUntil(login, currentTime + BLOCK_TIME)
+                Log.w("SecureAuth", "User $login blocked for 5 minutes (reached $newAttempts failed attempts)")
+            } else {
+                Log.w("SecureAuth", "Login failed for $login (attempt $newAttempts/$MAX_ATTEMPTS)")
+            }
+            return false
+        }
     }
 
-    // Вспомогательный метод для входа пользователя
     private fun loginUser(login: String, displayName: String, house: String) {
         sharedPrefs.edit()
             .putString("user_login", login)
@@ -142,7 +198,6 @@ class SecureAuth(private val context: Context) {
         Log.d("SecureAuth", "User logged in: $login ($displayName)")
     }
 
-    // ПОЛУЧИТЬ текущего пользователя
     fun getCurrentUser(): UserProfile? {
         val login = sharedPrefs.getString("user_login", null) ?: return null
         val displayName = sharedPrefs.getString("user_display_name", "") ?: ""
@@ -156,13 +211,11 @@ class SecureAuth(private val context: Context) {
         )
     }
 
-    // НОВАЯ ФУНКЦИЯ: Проверить, является ли пользователь владельцем объявления
     fun isCurrentUserOwner(advertOwnerLogin: String): Boolean {
         val currentUserLogin = sharedPrefs.getString("user_login", null)
         return currentUserLogin == advertOwnerLogin
     }
 
-    // ВЫЙТИ
     fun logout() {
         val currentUser = sharedPrefs.getString("user_login", null)
         sharedPrefs.edit()
@@ -172,7 +225,6 @@ class SecureAuth(private val context: Context) {
         Log.d("SecureAuth", "User logged out: $currentUser")
     }
 
-    // НОВАЯ ФУНКЦИЯ: Миграция хэшей (для существующих пользователей)
     fun migrateUserToPBKDF2(login: String, oldPassword: String): Boolean {
         val oldHash = sharedPrefs.getString("${login}_password_hash", null)
         val oldSalt = sharedPrefs.getString("${login}_salt", null)
@@ -182,7 +234,6 @@ class SecureAuth(private val context: Context) {
             return false
         }
 
-        // Проверяем старый пароль (SHA-256)
         val digest = MessageDigest.getInstance("SHA-256")
         val passwordWithSalt = oldPassword + oldSalt
         val calculatedOldHash = digest.digest(passwordWithSalt.toByteArray())
@@ -193,11 +244,9 @@ class SecureAuth(private val context: Context) {
             return false
         }
 
-        // Создаём новый хэш с PBKDF2
         val newSalt = generateSalt()
         val newHash = hashPassword(oldPassword, newSalt)
 
-        // Обновляем данные пользователя
         sharedPrefs.edit()
             .putString("${login}_password_hash", newHash)
             .putString("${login}_salt", newSalt)
