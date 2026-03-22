@@ -6,36 +6,44 @@ plugins {
 
 android {
     namespace = "com.example.district"
-    compileSdk = 36  // ← ИСПРАВЬТЕ ЭТУ СТРОКУ!
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.district"
         minSdk = 24
-        targetSdk = 36  // ← ТАКЖЕ ИСПРАВЬТЕ
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+
     buildTypes {
+        debug {
+            buildConfigField("String", "APP_SECRET", "\"${project.properties["appSecret"]}\"")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "APP_SECRET", "\"${System.getenv("APP_SECRET") ?: ""}\"")
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
-    }
-    buildFeatures {
-        compose = true
     }
 }
 
@@ -51,12 +59,12 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
-
-
-    // ДОБАВЬТЕ ЭТО ДЛЯ ИКОНОК:
-    implementation("androidx.compose.material:material-icons-extended:1.6.0")  // ← ВАЖНО!
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
