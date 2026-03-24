@@ -25,6 +25,8 @@ import com.example.district.ui.auth.ProfileScreen
 import com.example.district.ui.main.MarketplaceScreen
 import androidx.compose.material.icons.filled.Announcement  // ← НОВЫЙ ИКОН
 import com.example.district.ui.screens.HouseNewsScreen      // ← НОВЫЙ ЭКРАН
+import com.example.district.presentation.profile.ProfileEditScreen
+import com.example.district.data.remote.RetrofitClient
 
 // Модель данных для объявления (пока заглушка)
 data class Advert(
@@ -83,6 +85,7 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(onLogout: () -> Unit) {
     // Состояние для текущей вкладки
     var selectedTab by remember { mutableStateOf(0) }
+    var showProfileEdit by remember { mutableStateOf(false)}
 
     // Заглушка для списка объявлений
     val adverts = remember {
@@ -137,7 +140,19 @@ fun MainScreen(onLogout: () -> Unit) {
                 0 -> MarketplaceScreen()
                 1 -> MessagesScreen()
                 2 -> HouseNewsScreen()    // ← НОВАЯ ВКЛАДКА
-                3 -> ProfileScreen(onLogout = onLogout)  // ← ПРОФИЛЬ СДВИНУЛСЯ НА 3
+                3 -> {
+                    if (showProfileEdit) {
+                        ProfileEditScreen(
+                            apiService = RetrofitClient.instance,
+                            onBack = { showProfileEdit = false }
+                        )
+                    } else {
+                        ProfileScreen(
+                            onLogout = onLogout,
+                            onEditProfile = { showProfileEdit = true }
+                        )
+                    }
+                }
             }
         }
     }

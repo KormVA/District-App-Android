@@ -13,11 +13,13 @@ import androidx.compose.ui.unit.dp
 import com.example.district.security.SecureAuth
 
 @Composable
-fun ProfileScreen(onLogout: () -> Unit) {
+fun ProfileScreen(
+    onLogout: () -> Unit,
+    onEditProfile: () -> Unit
+) {
     val context = LocalContext.current
     val auth = SecureAuth(context)
 
-    // ВОТ ВАЖНО: получаем реального пользователя!
     val currentUser = auth.getCurrentUser()
 
     Column(
@@ -32,13 +34,11 @@ fun ProfileScreen(onLogout: () -> Unit) {
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // ПОКАЗЫВАЕМ РЕАЛЬНОЕ ИМЯ!
         Text(
             text = currentUser?.displayName ?: "Гость",
             style = MaterialTheme.typography.titleLarge
         )
 
-        // ПОКАЗЫВАЕМ РЕАЛЬНЫЙ ДОМ!
         currentUser?.house?.takeIf { it.isNotBlank() }?.let { house ->
             Text(
                 text = "🏠 $house",
@@ -47,7 +47,6 @@ fun ProfileScreen(onLogout: () -> Unit) {
             )
         }
 
-        // ПОКАЗЫВАЕМ РЕАЛЬНЫЙ ЛОГИН!
         Text(
             text = "@${currentUser?.login ?: "guest"}",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -55,7 +54,7 @@ fun ProfileScreen(onLogout: () -> Unit) {
         )
 
         Button(
-            onClick = { /* редактирование профиля */ },
+            onClick = onEditProfile,
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Default.Edit, contentDescription = "Редактировать")

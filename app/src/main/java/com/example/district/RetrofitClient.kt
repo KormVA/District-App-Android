@@ -6,6 +6,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 import com.example.district.BuildConfig
+import com.example.district.data.remote.api.ApiService
 
 object RetrofitClient {
 
