@@ -19,7 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.district.ui.theme.DistrictTheme
-import com.example.district.ui.auth.SecureLoginScreen
+import com.example.district.ui.auth.LoginScreen
 import com.example.district.ui.auth.RegisterScreen
 import com.example.district.ui.auth.ProfileScreen
 import com.example.district.ui.main.MarketplaceScreen
@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        RetrofitClient.init(this)
         setContent {
             DistrictTheme {
                 // 🔐 Состояние: вошёл ли пользователь
@@ -57,7 +58,8 @@ class MainActivity : ComponentActivity() {
                     )
                 } else if (!isLoggedIn) {
                     // 🔐 ЕСЛИ НЕ ВОШЁЛ: показываем экран входа
-                    SecureLoginScreen(
+                    LoginScreen(
+                        apiService = RetrofitClient.instance,
                         onLoginSuccess = { isLoggedIn = true },
                         onNavigateToRegister = { showRegistration = true }
                     )

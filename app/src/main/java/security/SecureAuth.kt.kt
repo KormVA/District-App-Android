@@ -383,6 +383,18 @@ class SecureAuth(private val context: Context) {
         return true
     }
 
+    fun saveToken(token: String) {
+        sharedPrefs.edit().putString("access_token", token).apply()
+    }
+
+    fun getToken(): String? {
+        return sharedPrefs.getString("access_token", null)
+    }
+
+    fun clearToken() {
+        sharedPrefs.edit().remove("access_token").apply()
+    }
+
     fun cleanup() {
         scope.cancel()
     }

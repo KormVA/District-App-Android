@@ -5,7 +5,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,11 +15,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.district.data.remote.api.ApiService
+import com.example.district.data.remote.model.LoginRequest
 import com.example.district.security.SecureAuth
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
+import javax.net.ssl.SSLException
 
 @Composable
-fun SecureLoginScreen(
+fun LoginScreen(
+    apiService: ApiService,
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit
 ) {
@@ -32,6 +36,8 @@ fun SecureLoginScreen(
     var showPassword by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    var attempts by remember { mutableStateOf(0) }
+    var lockUntil by remember { mutableStateOf(0L) }
 
     Column(
         modifier = Modifier
@@ -46,7 +52,6 @@ fun SecureLoginScreen(
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // Отображение ошибки
         errorMessage?.let { message ->
             Text(
                 text = message,
@@ -57,7 +62,6 @@ fun SecureLoginScreen(
             )
         }
 
-        // Поле логина
         OutlinedTextField(
             value = username,
             onValueChange = {
@@ -71,7 +75,6 @@ fun SecureLoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Поле пароля с иконкой показа/скрытия
         OutlinedTextField(
             value = password,
             onValueChange = {
@@ -103,9 +106,15 @@ fun SecureLoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Кнопка входа
         Button(
             onClick = {
+                val now = System.currentTimeMillis()
+                if (now < lockUntil) {
+                    val remaining = (lockUntil - now) / 1000
+                    errorMessage = "Слишком много попыток. Подождите ${remaining} секунд"
+                    return@Button
+                }
+
                 if (username.isBlank() || password.isBlank()) {
                     errorMessage = "Заполните все поля"
                     return@Button
@@ -116,21 +125,43 @@ fun SecureLoginScreen(
                     errorMessage = null
 
                     try {
-                        val auth = SecureAuth(context)
-                        if (auth.checkPassword(username, password)) {
-                            onLoginSuccess()
-                        } else {
-                            errorMessage = "Неверный логин или пароль"
+                        val startTime = System.currentTimeMillis()
+
+                        val response = apiService.login(LoginRequest(username, password))
+
+                        val elapsed = System.currentTimeMillis() - startTime
+                        if (elapsed < 300) {
+                            kotlinx.coroutines.delay(300 - elapsed)
                         }
+
+                        val auth = SecureAuth(context)
+                        auth.saveToken(response.access_token)
+
+                        attempts = 0
+                        lockUntil = 0
+                        onLoginSuccess()
+
+                    } catch (e: HttpException) {
+                        attempts++
+                        if (attempts >= 5) {
+                            lockUntil = System.currentTimeMillis() + 300000
+                        }
+
+                        when (e.code()) {
+                            401 -> errorMessage = "Неверный логин или пароль"
+                            else -> errorMessage = "Ошибка сервера (${e.code()})"
+                        }
+                    } catch (e: SSLException) {
+                        errorMessage = "Ошибка безопасности соединения"
                     } catch (e: Exception) {
-                        errorMessage = "Ошибка авторизации. Попробуйте позже"
+                        errorMessage = "Ошибка сети. Проверьте подключение"
                     } finally {
                         isLoading = false
                     }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
+            enabled = !isLoading && System.currentTimeMillis() >= lockUntil
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
@@ -138,7 +169,7 @@ fun SecureLoginScreen(
                     strokeWidth = 2.dp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Проверка...")
+                Text("Вход...")
             } else {
                 Text("Войти")
             }
@@ -146,7 +177,6 @@ fun SecureLoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Кнопка регистрации
         OutlinedButton(
             onClick = onNavigateToRegister,
             modifier = Modifier.fillMaxWidth()

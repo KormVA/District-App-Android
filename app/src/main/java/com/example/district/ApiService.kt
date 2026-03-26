@@ -1,10 +1,13 @@
 package com.example.district.data.remote.api
 
+import com.example.district.data.remote.model.LoginRequest
+import com.example.district.data.remote.model.LoginResponse
 import com.example.district.data.remote.model.Profile
 import com.example.district.data.remote.model.ProfileUpdate
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PATCH
+import retrofit2.http.POST
 
 interface ApiService {
     @GET("/")
@@ -15,4 +18,7 @@ interface ApiService {
 
     @PATCH("/profile/me")
     suspend fun updateProfile(@Body update: ProfileUpdate): Profile
+
+    @POST("/login")
+    suspend fun login(@Body request: LoginRequest): LoginResponse
 }
