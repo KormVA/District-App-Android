@@ -395,6 +395,9 @@ class SecureAuth(private val context: Context) {
         sharedPrefs.edit().remove("access_token").apply()
     }
 
+    fun isLoggedIn(): Boolean {
+        return getToken() != null
+    }
     fun cleanup() {
         scope.cancel()
     }

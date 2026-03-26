@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Announcement  // ← НОВЫЙ И
 import com.example.district.ui.screens.HouseNewsScreen      // ← НОВЫЙ ЭКРАН
 import com.example.district.presentation.profile.ProfileEditScreen
 import com.example.district.data.remote.RetrofitClient
+import com.example.district.security.SecureAuth
 
 // Модель данных для объявления (пока заглушка)
 data class Advert(
@@ -44,7 +45,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             DistrictTheme {
                 // 🔐 Состояние: вошёл ли пользователь
-                var isLoggedIn by remember { mutableStateOf(false) }
+                var isLoggedIn by remember { mutableStateOf(SecureAuth(this).getToken() != null) }
                 var showRegistration by remember { mutableStateOf(false) }
 
                 if (showRegistration) {

@@ -21,6 +21,7 @@ import com.example.district.security.SecureAuth
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import javax.net.ssl.SSLException
+import android.util.Log
 
 @Composable
 fun LoginScreen(
@@ -136,6 +137,7 @@ fun LoginScreen(
 
                         val auth = SecureAuth(context)
                         auth.saveToken(response.access_token)
+                        Log.d("TOKEN_TEST", "Сохранён: ${response.access_token}")
 
                         attempts = 0
                         lockUntil = 0
