@@ -15,12 +15,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.district.data.remote.api.ApiService
+import com.example.district.data.remote.model.RegisterRequest
 import com.example.district.security.SecureAuth
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
+import javax.net.ssl.SSLException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
+    apiService: ApiService,
     onBack: () -> Unit,
     onRegisterSuccess: () -> Unit
 ) {
@@ -28,14 +33,15 @@ fun RegisterScreen(
     val scope = rememberCoroutineScope()
 
     var username by remember { mutableStateOf("") }
+    var displayName by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
     var showConfirmPassword by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
-    var house by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -63,11 +69,19 @@ fun RegisterScreen(
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
-            // Поля формы регистрации
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
-                label = { Text("Имя пользователя") },
+                label = { Text("Логин") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = displayName,
+                onValueChange = { displayName = it },
+                label = { Text("Имя для отображения") },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -76,14 +90,17 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it },
-                label = { Text("Номер телефона") },
+                label = { Text("Телефон (необязательно)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth()
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             OutlinedTextField(
-                value = house,
-                onValueChange = { house = it },
-                label = { Text("Ваш дом (например: ул. Ленина, 10)") },
+                value = address,
+                onValueChange = { address = it },
+                label = { Text("Адрес (город, улица, дом)") },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -135,8 +152,8 @@ fun RegisterScreen(
 
             Button(
                 onClick = {
-                    if (username.isBlank() || phone.isBlank() || password.isBlank()) {
-                        errorMessage = "Заполните все поля"
+                    if (username.isBlank() || password.isBlank() || address.isBlank()) {
+                        errorMessage = "Заполните все обязательные поля"
                         return@Button
                     }
 
@@ -145,23 +162,44 @@ fun RegisterScreen(
                         return@Button
                     }
 
-                    if (password.length < 6) {
-                        errorMessage = "Пароль должен быть минимум 6 символов"
+                    if (password.length < 8) {
+                        errorMessage = "Пароль должен быть минимум 8 символов"
                         return@Button
                     }
 
                     scope.launch {
                         isLoading = true
-                        val auth = SecureAuth(context)
-                        val success = auth.registerUser(username, password, username, house)
+                        errorMessage = null
 
-                        if (success) {
-                            // Здесь можно сохранить username и phone в базу данных
+                        try {
+                            val response = apiService.register(
+                                RegisterRequest(
+                                    username = username,
+                                    password = password,
+                                    display_name = displayName.ifEmpty { username },
+                                    address = address
+                                )
+                            )
+
+                            val auth = SecureAuth(context)
+                            auth.saveToken(response.access_token)
+                            auth.saveUser(username, response.user.display_name ?: username, address)
+
                             onRegisterSuccess()
-                        } else {
-                            errorMessage = "Ошибка при создании аккаунта"
+
+                        } catch (e: HttpException) {
+                            when (e.code()) {
+                                400 -> errorMessage = "Пользователь уже существует"
+                                422 -> errorMessage = "Неверные данные"
+                                else -> errorMessage = "Ошибка сервера (${e.code()})"
+                            }
+                        } catch (e: SSLException) {
+                            errorMessage = "Ошибка безопасности соединения"
+                        } catch (e: Exception) {
+                            errorMessage = "Ошибка сети. Проверьте подключение"
+                        } finally {
+                            isLoading = false
                         }
-                        isLoading = false
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),

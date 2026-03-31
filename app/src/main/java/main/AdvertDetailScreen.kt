@@ -28,8 +28,8 @@ fun AdvertDetailScreen(
     onBack: () -> Unit,
     onToggleFavorite: (Int) -> Unit,
     isFavorite: Boolean,
-    onEdit: () -> Unit, // ← НОВЫЙ ПАРАМЕТР
-    canEdit: Boolean // ← НОВЫЙ ПАРАМЕТР
+    onEdit: () -> Unit,
+    canEdit: Boolean
 ) {
     val scrollState = rememberScrollState()
     var showPhone by remember { mutableStateOf(false) }
@@ -44,11 +44,8 @@ fun AdvertDetailScreen(
                     }
                 },
                 actions = {
-                    // Кнопка редактирования (только если можно)
                     if (canEdit) {
-                        IconButton(
-                            onClick = onEdit
-                        ) {
+                        IconButton(onClick = onEdit) {
                             Icon(
                                 Icons.Default.Edit,
                                 contentDescription = "Редактировать",
@@ -57,10 +54,7 @@ fun AdvertDetailScreen(
                         }
                     }
 
-                    // Кнопка избранного
-                    IconButton(
-                        onClick = { onToggleFavorite(advert.id) }
-                    ) {
+                    IconButton(onClick = { onToggleFavorite(advert.id) }) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                             contentDescription = "В избранное",
@@ -78,7 +72,6 @@ fun AdvertDetailScreen(
                 .padding(paddingValues)
                 .verticalScroll(scrollState)
         ) {
-            // Заглушка для фото (пока нет реальных фото)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -103,11 +96,9 @@ fun AdvertDetailScreen(
                 }
             }
 
-            // Основная информация
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
-                // Заголовок и цена
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -129,7 +120,6 @@ fun AdvertDetailScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Категория и дата
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -154,7 +144,6 @@ fun AdvertDetailScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Описание
                 Text(
                     text = "Описание",
                     style = MaterialTheme.typography.titleMedium,
@@ -169,7 +158,6 @@ fun AdvertDetailScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Информация о продавце
                 Text(
                     text = "Продавец",
                     style = MaterialTheme.typography.titleMedium,
@@ -180,7 +168,6 @@ fun AdvertDetailScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Аватар продавца
                     Box(
                         modifier = Modifier
                             .size(50.dp)
@@ -202,11 +189,10 @@ fun AdvertDetailScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "🏠 ${advert.house}",
+                            text = "🏠 ${advert.address}",
                             color = MaterialTheme.colorScheme.outline,
                             fontSize = 14.sp
                         )
-                        // Показываем, если это ваше объявление
                         if (canEdit) {
                             Text(
                                 text = "Ваше объявление",
@@ -219,7 +205,6 @@ fun AdvertDetailScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Контакты
                 Text(
                     text = "Контакты",
                     style = MaterialTheme.typography.titleMedium,
@@ -245,12 +230,14 @@ fun AdvertDetailScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text("Телефон", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
-                                Text(advert.phone, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    text = advert.phone ?: "Не указан",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                             Spacer(modifier = Modifier.weight(1f))
-                            IconButton(
-                                onClick = { showPhone = false }
-                            ) {
+                            IconButton(onClick = { showPhone = false }) {
                                 Icon(Icons.Default.VisibilityOff, contentDescription = "Скрыть")
                             }
                         }
@@ -268,15 +255,12 @@ fun AdvertDetailScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Кнопки действий
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Button(
-                        onClick = {
-                            // TODO: Позвонить
-                        },
+                        onClick = { /* TODO: Позвонить */ },
                         modifier = Modifier.weight(1f),
                         enabled = showPhone
                     ) {

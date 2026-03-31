@@ -4,7 +4,7 @@ data class Profile(
     val id: Int,
     val username: String,
     val displayName: String?,
-    val houseId: Int,
+    val address: String,
     val phone: String?,
     val telegram: String?,
     val phoneVisible: Boolean,

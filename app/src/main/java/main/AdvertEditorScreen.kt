@@ -24,7 +24,7 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdvertEditorScreen(
-    advert: Advert? = null, // null = создание, не null = редактирование
+    advert: Advert? = null,
     onBack: () -> Unit,
     onSave: (Advert) -> Unit,
     favoritesViewModel: FavoritesViewModel
@@ -34,7 +34,6 @@ fun AdvertEditorScreen(
     val currentUser = auth.getCurrentUser()
     val scrollState = rememberScrollState()
 
-    // Состояния формы
     var title by remember { mutableStateOf(advert?.title ?: "") }
     var description by remember { mutableStateOf(advert?.description ?: "") }
     var price by remember { mutableStateOf(advert?.price?.replace(" ₽", "") ?: "") }
@@ -78,7 +77,6 @@ fun AdvertEditorScreen(
                 style = MaterialTheme.typography.titleLarge
             )
 
-            // Ошибка
             errorMessage?.let { message ->
                 Text(
                     text = message,
@@ -87,7 +85,6 @@ fun AdvertEditorScreen(
                 )
             }
 
-            // Название
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
@@ -98,7 +95,6 @@ fun AdvertEditorScreen(
                 isError = title.isBlank()
             )
 
-            // Описание
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
@@ -111,7 +107,6 @@ fun AdvertEditorScreen(
                 isError = description.isBlank()
             )
 
-            // Цена
             OutlinedTextField(
                 value = price,
                 onValueChange = { price = it },
@@ -126,7 +121,6 @@ fun AdvertEditorScreen(
                 isError = price.isBlank()
             )
 
-            // Категория
             Text("Категория*", style = MaterialTheme.typography.labelMedium)
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -141,7 +135,6 @@ fun AdvertEditorScreen(
                 }
             }
 
-            // Контактный телефон
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it },
@@ -152,7 +145,6 @@ fun AdvertEditorScreen(
                 isError = phone.isBlank() || phone == "+7 "
             )
 
-            // Информация о продавце
             Card(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -161,7 +153,7 @@ fun AdvertEditorScreen(
                 ) {
                     Text("Информация о продавце", style = MaterialTheme.typography.labelMedium)
                     Text("Имя: ${currentUser?.displayName ?: "Вы"}")
-                    Text("Дом: ${currentUser?.house ?: "Не указан"}")
+                    Text("Адрес: ${currentUser?.address ?: "Не указан"}")
 
                     if (isEditMode) {
                         Spacer(modifier = Modifier.height(8.dp))
@@ -176,10 +168,8 @@ fun AdvertEditorScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Кнопка сохранения
             Button(
                 onClick = {
-                    // Валидация
                     if (title.isBlank()) {
                         errorMessage = "Введите название товара"
                         return@Button
@@ -197,11 +187,10 @@ fun AdvertEditorScreen(
                         return@Button
                     }
 
-                    val userHouse = currentUser?.house ?: "Не указан"
+                    val userAddress = currentUser?.address ?: ""
                     val userLogin = currentUser?.login ?: ""
 
                     val updatedAdvert = if (isEditMode) {
-                        // Редактирование существующего
                         advert!!.copy(
                             title = title,
                             description = description,
@@ -210,7 +199,6 @@ fun AdvertEditorScreen(
                             phone = phone
                         )
                     } else {
-                        // Создание нового
                         val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
                         val currentDate = dateFormat.format(Date())
 
@@ -223,14 +211,16 @@ fun AdvertEditorScreen(
                             author = currentUser?.displayName ?: "Вы",
                             phone = phone,
                             date = currentDate,
-                            house = userHouse,
+                            address = userAddress,
                             isFavorite = false,
                             ownerLogin = userLogin,
-                            canEdit = true
+                            canEdit = true,
+                            telegram = null,
+                            phoneVisible = true,
+                            telegramVisible = false
                         )
                     }
 
-                    // Сохраняем в ViewModel
                     if (isEditMode) {
                         favoritesViewModel.updateAdvert(updatedAdvert)
                     } else {
@@ -248,7 +238,6 @@ fun AdvertEditorScreen(
                 Text(buttonText)
             }
 
-            // Кнопка удаления (только в режиме редактирования)
             if (isEditMode) {
                 OutlinedButton(
                     onClick = {

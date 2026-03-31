@@ -4,16 +4,15 @@ import android.content.Context
 import android.util.Base64
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
+import androidx.security.crypto.MasterKey
 import com.example.district.models.UserProfile
 import kotlinx.coroutines.*
 import java.security.MessageDigest
 import java.security.SecureRandom
-import java.util.Date
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import kotlin.random.Random
+
 
 class SecureAuth(private val context: Context) {
 
@@ -27,7 +26,7 @@ class SecureAuth(private val context: Context) {
         private const val BLOCK_TIME = 300_000L // 5 минут
         private const val MAX_ATTEMPTS = 5
         private const val GLOBAL_MAX_ATTEMPTS_PER_HOUR = 100
-        private const val MIN_RESPONSE_TIME_MS = 150L // Минимальное время ответа для защиты от timing attacks
+        private const val MIN_RESPONSE_TIME_MS = 150L
 
         private fun generateSalt(): String {
             val salt = ByteArray(SALT_LENGTH)
@@ -48,18 +47,21 @@ class SecureAuth(private val context: Context) {
                 val hash = factory.generateSecret(spec).encoded
                 return Base64.encodeToString(hash, Base64.NO_WRAP)
             } catch (e: Exception) {
-                Log.e("SecureAuth", "PBKDF2 failed: ${e.message}", e)
+                // log.e("SecureAuth", "PBKDF2 failed: ${e.message}", e)
                 throw RuntimeException("Password hashing failed", e)
             }
         }
     }
 
     private val sharedPrefs by lazy {
-        val masterKey = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+
         EncryptedSharedPreferences.create(
+            context,
             "secure_auth",
             masterKey,
-            context,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
@@ -94,12 +96,11 @@ class SecureAuth(private val context: Context) {
 
     // ========== ГЛОБАЛЬНЫЙ RATE LIMITING ==========
     private fun checkGlobalRateLimit(): Boolean {
-        val currentHour = System.currentTimeMillis() / 3600000 // час
+        val currentHour = System.currentTimeMillis() / 3600000
         val lastHour = sharedPrefs.getLong("global_rate_hour", 0)
         val attempts = sharedPrefs.getInt("global_rate_attempts", 0)
 
         return if (lastHour != currentHour) {
-            // Новый час - сбрасываем счетчик
             sharedPrefs.edit()
                 .putLong("global_rate_hour", currentHour)
                 .putInt("global_rate_attempts", 1)
@@ -142,16 +143,13 @@ class SecureAuth(private val context: Context) {
                 "device_id" to getDeviceId()
             ) + details
 
-            // Сохраняем в отдельный лог
             val logKey = "security_log_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
             sharedPrefs.edit().putString(logKey, eventData.toString()).apply()
 
-            // Если слишком много попыток - шлем сигнал
             if (getAttempts(login) >= MAX_ATTEMPTS * 2) {
                 notifyAdmin("Brute force attack detected on $login")
             }
 
-            // Очищаем старые логи (оставляем только 100 последних)
             cleanupOldLogs()
         }
     }
@@ -164,9 +162,7 @@ class SecureAuth(private val context: Context) {
     }
 
     private fun notifyAdmin(message: String) {
-        // Здесь можно отправить push, email, telegram и т.д.
-        Log.e("SECURITY_ALERT", message)
-        // TODO: Реализовать отправку уведомления админу
+        // log.e("SECURITY_ALERT", message)
     }
 
     private fun cleanupOldLogs() {
@@ -187,7 +183,6 @@ class SecureAuth(private val context: Context) {
         var result = false
 
         try {
-            // Проверка глобального rate limiting
             if (!checkGlobalRateLimit()) {
                 logSecurityEvent("GLOBAL_RATE_LIMIT_EXCEEDED", login)
                 return@withContext false
@@ -195,7 +190,6 @@ class SecureAuth(private val context: Context) {
 
             val currentTime = System.currentTimeMillis()
 
-            // ========== ПРОВЕРКА БЛОКИРОВКИ ==========
             val lockTime = getLockUntil(login)
             if (lockTime > currentTime) {
                 val remaining = (lockTime - currentTime) / 1000
@@ -206,10 +200,8 @@ class SecureAuth(private val context: Context) {
                 logSecurityEvent("ACCOUNT_UNBLOCKED", login)
             }
 
-            // ========== ПОЛУЧАЕМ ТЕКУЩЕЕ КОЛИЧЕСТВО ПОПЫТОК ==========
             val attempts = getAttempts(login)
 
-            // ========== АДМИН (С ЗАЩИТОЙ) ==========
             if (login == "admin") {
                 val adminHash = sharedPrefs.getString("admin_password_hash", null)
                 val adminSalt = sharedPrefs.getString("admin_salt", null)
@@ -227,7 +219,6 @@ class SecureAuth(private val context: Context) {
                 }
 
                 if (!adminSuccess) {
-                    // Неудача — увеличиваем счётчик
                     val newAttempts = attempts + 1
                     setAttempts(login, newAttempts)
                     incrementGlobalAttempts()
@@ -242,15 +233,13 @@ class SecureAuth(private val context: Context) {
 
                 result = adminSuccess
             } else {
-                // ========== ОБЫЧНЫЕ ПОЛЬЗОВАТЕЛИ ==========
                 val storedHash = sharedPrefs.getString("${login}_password_hash", null)
                 val salt = sharedPrefs.getString("${login}_salt", null)
 
                 if (storedHash == null || salt == null) {
-                    // Пользователь не найден - но мы все равно делаем фейковую проверку!
                     val fakeSalt = generateSalt()
-                    val fakeHash = hashPassword("fake_password_that_never_matches", fakeSalt)
-                    hashPassword(password, fakeSalt) // Тратим время как при реальной проверке
+                    hashPassword("fake_password_that_never_matches", fakeSalt)
+                    hashPassword(password, fakeSalt)
 
                     incrementGlobalAttempts()
                     logSecurityEvent("USER_NOT_FOUND", login)
@@ -285,7 +274,6 @@ class SecureAuth(private val context: Context) {
             logSecurityEvent("ERROR", login, mapOf("error" to (e.message ?: "unknown")))
             result = false
         } finally {
-            // ========== ЗАЩИТА ОТ TIMING ATTACKS ==========
             val elapsed = System.currentTimeMillis() - startTime
             if (elapsed < MIN_RESPONSE_TIME_MS) {
                 delay(MIN_RESPONSE_TIME_MS - elapsed)
@@ -301,18 +289,20 @@ class SecureAuth(private val context: Context) {
             .putString("user_display_name", displayName)
             .putString("user_house", house)
             .apply()
-        Log.d("SecureAuth", "User logged in: $login ($displayName)")
+        // log.d("SecureAuth", "User logged in: $login ($displayName)")
     }
 
     fun getCurrentUser(): UserProfile? {
         val login = sharedPrefs.getString("user_login", null) ?: return null
         val displayName = sharedPrefs.getString("user_display_name", "") ?: ""
         val house = sharedPrefs.getString("user_house", "") ?: ""
+        val address = sharedPrefs.getString("user_address", house) ?: ""
 
         return UserProfile(
             login = login,
             displayName = displayName,
             house = house,
+            address = address,
             phone = ""
         )
     }
@@ -328,12 +318,12 @@ class SecureAuth(private val context: Context) {
             .remove("user_login")
             .remove("user_display_name")
             .apply()
-        Log.d("SecureAuth", "User logged out: $currentUser")
+        // log.d("SecureAuth", "User logged out: $currentUser")
     }
 
     fun registerUser(login: String, password: String, displayName: String, house: String): Boolean {
         if (password.length < 8) {
-            Log.w("SecureAuth", "Password too short: ${password.length} chars")
+            // log.w("SecureAuth", "Password too short: ${password.length} chars")
             return false
         }
 
@@ -347,7 +337,7 @@ class SecureAuth(private val context: Context) {
             .putString("${login}_house", house)
             .apply()
 
-        Log.d("SecureAuth", "User registered: $login with PBKDF2 hash")
+        // log.d("SecureAuth", "User registered: $login with PBKDF2 hash")
         loginUser(login, displayName, house)
         return true
     }
@@ -357,7 +347,7 @@ class SecureAuth(private val context: Context) {
         val oldSalt = sharedPrefs.getString("${login}_salt", null)
 
         if (oldHash == null || oldSalt == null) {
-            Log.e("SecureAuth", "Cannot migrate: user data not found for $login")
+            // log.e("SecureAuth", "Cannot migrate: user data not found for $login")
             return false
         }
 
@@ -367,7 +357,7 @@ class SecureAuth(private val context: Context) {
         val calculatedOldHashBase64 = Base64.encodeToString(calculatedOldHash, Base64.NO_WRAP)
 
         if (calculatedOldHashBase64 != oldHash) {
-            Log.e("SecureAuth", "Cannot migrate: password incorrect for $login")
+            // log.e("SecureAuth", "Cannot migrate: password incorrect for $login")
             return false
         }
 
@@ -379,7 +369,7 @@ class SecureAuth(private val context: Context) {
             .putString("${login}_salt", newSalt)
             .apply()
 
-        Log.d("SecureAuth", "User migrated to PBKDF2: $login")
+        // log.d("SecureAuth", "User migrated to PBKDF2: $login")
         return true
     }
 
@@ -398,6 +388,16 @@ class SecureAuth(private val context: Context) {
     fun isLoggedIn(): Boolean {
         return getToken() != null
     }
+
+    fun saveUser(username: String, displayName: String, address: String) {
+        sharedPrefs.edit()
+            .putString("user_login", username)
+            .putString("user_display_name", displayName)
+            .putString("user_house", address)
+            .putString("user_address", address)
+            .apply()
+    }
+
     fun cleanup() {
         scope.cancel()
     }

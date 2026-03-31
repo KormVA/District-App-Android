@@ -1,5 +1,5 @@
 package com.example.district
-// Project reopened from GitHub - все работает!(2)
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,13 +23,13 @@ import com.example.district.ui.auth.LoginScreen
 import com.example.district.ui.auth.RegisterScreen
 import com.example.district.ui.auth.ProfileScreen
 import com.example.district.ui.main.MarketplaceScreen
-import androidx.compose.material.icons.filled.Announcement  // ← НОВЫЙ ИКОН
-import com.example.district.ui.screens.HouseNewsScreen      // ← НОВЫЙ ЭКРАН
+import androidx.compose.material.icons.filled.Announcement
+import com.example.district.ui.screens.HouseNewsScreen
 import com.example.district.presentation.profile.ProfileEditScreen
 import com.example.district.data.remote.RetrofitClient
 import com.example.district.security.SecureAuth
+import androidx.compose.runtime.LaunchedEffect
 
-// Модель данных для объявления (пока заглушка)
 data class Advert(
     val id: Int,
     val title: String,
@@ -38,19 +38,24 @@ data class Advert(
 )
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         RetrofitClient.init(this)
         setContent {
             DistrictTheme {
-                // 🔐 Состояние: вошёл ли пользователь
-                var isLoggedIn by remember { mutableStateOf(SecureAuth(this).getToken() != null) }
+                val auth = SecureAuth(this)
+                var isLoggedIn by remember { mutableStateOf(false) }
                 var showRegistration by remember { mutableStateOf(false) }
 
+                LaunchedEffect(Unit) {
+                    isLoggedIn = auth.getToken() != null
+                }
+
                 if (showRegistration) {
-                    // 📝 ЕСЛИ РЕГИСТРАЦИЯ: показываем экран регистрации
                     RegisterScreen(
+                        apiService = RetrofitClient.instance,
                         onBack = { showRegistration = false },
                         onRegisterSuccess = {
                             showRegistration = false
@@ -58,21 +63,20 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else if (!isLoggedIn) {
-                    // 🔐 ЕСЛИ НЕ ВОШЁЛ: показываем экран входа
                     LoginScreen(
                         apiService = RetrofitClient.instance,
                         onLoginSuccess = { isLoggedIn = true },
                         onNavigateToRegister = { showRegistration = true }
                     )
                 } else {
-                    // ✅ ЕСЛИ ВОШЁЛ: показываем твой старый интерфейс
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
                         MainScreen(
                             onLogout = {
-                                isLoggedIn = false  // ← КНОПКА ВЫХОДА
+                                auth.clearToken()
+                                isLoggedIn = false
                             }
                         )
                     }
@@ -82,15 +86,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Главный экран с навигацией
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(onLogout: () -> Unit) {
-    // Состояние для текущей вкладки
     var selectedTab by remember { mutableStateOf(0) }
-    var showProfileEdit by remember { mutableStateOf(false)}
+    var showProfileEdit by remember { mutableStateOf(false) }
 
-    // Заглушка для списка объявлений
     val adverts = remember {
         listOf(
             Advert(1, "Продаю велосипед", "Хороший велосипед, новый", "Сосед №1"),
@@ -137,12 +138,11 @@ fun MainScreen(onLogout: () -> Unit) {
             }
         }
     ) { paddingValues ->
-        // Содержимое в зависимости от выбранной вкладки
         Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
                 0 -> MarketplaceScreen()
                 1 -> MessagesScreen()
-                2 -> HouseNewsScreen()    // ← НОВАЯ ВКЛАДКА
+                2 -> HouseNewsScreen()
                 3 -> {
                     if (showProfileEdit) {
                         ProfileEditScreen(
@@ -161,7 +161,6 @@ fun MainScreen(onLogout: () -> Unit) {
     }
 }
 
-// Экран с объявлениями
 @Composable
 fun AdvertsScreen(adverts: List<Advert>) {
     Column(
@@ -169,14 +168,12 @@ fun AdvertsScreen(adverts: List<Advert>) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Заголовок
         Text(
             text = "Свежие объявления",
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Список объявлений
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -187,7 +184,6 @@ fun AdvertsScreen(adverts: List<Advert>) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Кнопка добавления (пока заглушка)
         Button(
             onClick = { /* TODO: открыть форму добавления */ },
             modifier = Modifier.align(Alignment.End)
@@ -199,7 +195,6 @@ fun AdvertsScreen(adverts: List<Advert>) {
     }
 }
 
-// Карточка объявления
 @Composable
 fun AdvertCard(advert: Advert) {
     Card(
@@ -231,7 +226,6 @@ fun AdvertCard(advert: Advert) {
     }
 }
 
-// Экран сообщений (заглушка)
 @Composable
 fun MessagesScreen() {
     Box(
@@ -242,7 +236,6 @@ fun MessagesScreen() {
     }
 }
 
-// Экран профиля С КНОПКОЙ ВЫХОДА
 @Composable
 fun ProfileScreen(onLogout: () -> Unit) {
     Column(
@@ -265,7 +258,6 @@ fun ProfileScreen(onLogout: () -> Unit) {
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
-        // КНОПКА ВЫХОДА
         Button(
             onClick = onLogout,
             colors = ButtonDefaults.buttonColors(
@@ -281,7 +273,6 @@ fun ProfileScreen(onLogout: () -> Unit) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Информация о security демо
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(

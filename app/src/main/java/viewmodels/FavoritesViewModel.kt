@@ -16,10 +16,8 @@ import androidx.security.crypto.MasterKeys
 
 class FavoritesViewModel(private val context: Context) : ViewModel() {
 
-    // 📦 Библиотека для работы с JSON (чтобы сохранять объекты)
     private val gson = Gson()
 
-    // 🔐 Зашифрованное хранилище
     private val sharedPrefs by lazy {
         val masterKey = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
         EncryptedSharedPreferences.create(
@@ -31,84 +29,52 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
         )
     }
 
-    // 📋 Все объявления
     private val _allAdverts = mutableStateListOf<Advert>()
     val allAdverts: List<Advert> get() = _allAdverts
 
-    // ❤️ Показывать только избранное?
     var showFavoritesOnly by mutableStateOf(false)
         private set
 
-    // 💾 Избранные ID
     private val favoriteIds = mutableSetOf<Int>()
 
-    // 🚀 ПРИ ЗАПУСКЕ: загружаем всё
     init {
         loadFavoritesFromStorage()
-        loadAdvertsFromStorage()  // ⬅️ ВАЖНО: теперь грузим из хранилища!
+        loadAdvertsFromStorage()
     }
 
-    // ========== 💾 СОХРАНЕНИЕ ОБЪЯВЛЕНИЙ ==========
-
-    // 📥 ЗАГРУЖАЕМ объявления из памяти телефона
     private fun loadAdvertsFromStorage() {
         viewModelScope.launch {
-            // 1. Пытаемся достать сохранённые объявления
             val json = sharedPrefs.getString("saved_adverts", null)
 
             if (json != null && json.isNotBlank()) {
-                // 2. УРА! Есть сохранённые объявления
-                println("📥 Загружаем сохранённые объявления...")
-
                 try {
-                    // 3. Превращаем текст JSON обратно в список объявлений
                     val type = object : TypeToken<List<Advert>>() {}.type
                     val savedAdverts = gson.fromJson<List<Advert>>(json, type)
-
-                    // 4. Очищаем старые и добавляем сохранённые
                     _allAdverts.clear()
                     _allAdverts.addAll(savedAdverts ?: emptyList())
-
-                    println("✅ Загружено ${savedAdverts?.size ?: 0} объявлений")
-
-                    // 5. Обновляем состояния избранного
                     updateFavoritesStatus()
-
                 } catch (e: Exception) {
-                    // 6. Если ошибка - грузим примерные объявления
-                    println("❌ Ошибка загрузки: ${e.message}")
                     loadSampleAdverts()
                 }
             } else {
-                // 7. Если нет сохранённых - грузим примерные
-                println("📭 Нет сохранённых объявлений, грузим примерные")
                 loadSampleAdverts()
             }
         }
     }
 
-    // 💾 СОХРАНЯЕМ объявления в память телефона
     private fun saveAdvertsToStorage() {
         viewModelScope.launch {
             try {
-                // 1. Превращаем список объявлений в текст JSON
                 val json = gson.toJson(_allAdverts)
-
-                // 2. Сохраняем в зашифрованное хранилище
                 sharedPrefs.edit()
                     .putString("saved_adverts", json)
                     .apply()
-
-                println("💾 Сохранено ${_allAdverts.size} объявлений")
             } catch (e: Exception) {
-                println("❌ Ошибка сохранения: ${e.message}")
+                // Ошибка
             }
         }
     }
 
-    // ========== ❤️ ИЗБРАННОЕ ==========
-
-    // 📥 Загружаем избранное
     private fun loadFavoritesFromStorage() {
         viewModelScope.launch {
             val savedIds = sharedPrefs.getStringSet("favorite_ids", emptySet()) ?: emptySet()
@@ -117,14 +83,12 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
                 try {
                     favoriteIds.add(it.toInt())
                 } catch (e: NumberFormatException) {
-                    // Пропускаем некорректные ID
+                    // Пропускаем
                 }
             }
-            println("❤️ Загружено ${favoriteIds.size} избранных")
         }
     }
 
-    // 💾 Сохраняем избранное
     private fun saveFavoritesToStorage() {
         viewModelScope.launch {
             val stringSet = favoriteIds.map { it.toString() }.toSet()
@@ -134,7 +98,6 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    // 🔄 Обновляем статус избранного у всех объявлений
     private fun updateFavoritesStatus() {
         for (i in _allAdverts.indices) {
             val advert = _allAdverts[i]
@@ -145,9 +108,6 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    // ========== 📝 ПРИМЕРНЫЕ ДАННЫЕ ==========
-
-    // 🧪 Загружаем примерные объявления (только если нет сохранённых)
     private fun loadSampleAdverts() {
         val adverts = listOf(
             Advert(
@@ -160,9 +120,12 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
                 phone = "+7 (999) 123-45-67",
                 date = "17 янв",
                 isFavorite = favoriteIds.contains(1),
-                house = "ул. Ленина, 10",
+                address = "Уфа, Бородинская 19",
                 ownerLogin = "alex",
-                canEdit = false
+                canEdit = false,
+                telegram = null,
+                phoneVisible = true,
+                telegramVisible = false
             ),
             Advert(
                 id = 2,
@@ -174,9 +137,12 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
                 phone = "+7 (999) 765-43-21",
                 date = "16 янв",
                 isFavorite = favoriteIds.contains(2),
-                house = "ул. Ленина, 10",
+                address = "Уфа, Бородинская 19",
                 ownerLogin = "maria",
-                canEdit = false
+                canEdit = false,
+                telegram = null,
+                phoneVisible = true,
+                telegramVisible = false
             ),
             Advert(
                 id = 3,
@@ -188,9 +154,12 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
                 phone = "+7 (999) 111-22-33",
                 date = "15 янв",
                 isFavorite = favoriteIds.contains(3),
-                house = "ул. Ленина, 12",
+                address = "Уфа, Бородинская 19",
                 ownerLogin = "dmitry",
-                canEdit = false
+                canEdit = false,
+                telegram = null,
+                phoneVisible = true,
+                telegramVisible = false
             ),
             Advert(
                 id = 4,
@@ -202,9 +171,12 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
                 phone = "+7 (999) 444-55-66",
                 date = "14 янв",
                 isFavorite = favoriteIds.contains(4),
-                house = "ул. Ленина, 12",
+                address = "Уфа, Бородинская 19",
                 ownerLogin = "sergey",
-                canEdit = false
+                canEdit = false,
+                telegram = null,
+                phoneVisible = true,
+                telegramVisible = false
             ),
             Advert(
                 id = 5,
@@ -216,20 +188,19 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
                 phone = "+7 (999) 777-88-99",
                 date = "13 янв",
                 isFavorite = favoriteIds.contains(5),
-                house = "ул. Ленина, 10",
+                address = "Уфа, Бородинская 19",
                 ownerLogin = "olga",
-                canEdit = false
+                canEdit = false,
+                telegram = null,
+                phoneVisible = true,
+                telegramVisible = false
             )
         )
 
         _allAdverts.clear()
         _allAdverts.addAll(adverts)
-        println("🧪 Загружено ${adverts.size} примерных объявлений")
     }
 
-    // ========== 🎯 ОСНОВНЫЕ ФУНКЦИИ ==========
-
-    // ❤️ Переключить избранное
     fun toggleFavorite(advertId: Int) {
         val index = _allAdverts.indexOfFirst { it.id == advertId }
         if (index != -1) {
@@ -255,7 +226,6 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
         showFavoritesOnly = !showFavoritesOnly
     }
 
-    // 📋 Фильтрация
     fun getFilteredAdverts(category: String? = null): List<Advert> {
         return _allAdverts.filter { advert ->
             (category == null || category == "Все товары" || advert.category == category) &&
@@ -263,65 +233,32 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    // ========== ✨ СОЗДАНИЕ/РЕДАКТИРОВАНИЕ/УДАЛЕНИЕ ==========
-
-    // ➕ ДОБАВИТЬ новое объявление
     fun addNewAdvert(advert: Advert) {
-        println("🟢 Добавляем новое объявление: ${advert.title}")
-
-        // Генерируем новый уникальный ID
         val newId = (_allAdverts.maxOfOrNull { it.id } ?: 0) + 1
         val newAdvert = advert.copy(id = newId)
-
-        // Добавляем в начало списка
         _allAdverts.add(0, newAdvert)
-
-        // 💾 НОВОЕ: Сохраняем изменения!
         saveAdvertsToStorage()
-
-        println("✅ Добавлено! ID: $newId, всего: ${_allAdverts.size}")
     }
 
-    // ✏️ ОБНОВИТЬ объявление
     fun updateAdvert(updatedAdvert: Advert) {
         val index = _allAdverts.indexOfFirst { it.id == updatedAdvert.id }
         if (index != -1) {
-            println("🟡 Обновляем объявление ID ${updatedAdvert.id}")
-
-            // Сохраняем состояние избранного
             val wasFavorite = _allAdverts[index].isFavorite
             _allAdverts[index] = updatedAdvert.copy(isFavorite = wasFavorite)
-
-            // 💾 НОВОЕ: Сохраняем изменения!
             saveAdvertsToStorage()
-
-            println("✅ Обновлено!")
-        } else {
-            println("🔴 Объявление с ID ${updatedAdvert.id} не найдено!")
         }
     }
 
-    // ❌ УДАЛИТЬ объявление
     fun removeAdvert(advertId: Int) {
-        println("🔴 Удаляем объявление ID $advertId")
-
         val removed = _allAdverts.removeAll { it.id == advertId }
-
-        // Удаляем из избранного если нужно
         if (favoriteIds.contains(advertId)) {
             favoriteIds.remove(advertId)
             saveFavoritesToStorage()
         }
-
-        // 💾 НОВОЕ: Сохраняем изменения!
         if (removed) {
             saveAdvertsToStorage()
         }
-
-        println("${if (removed) "✅ Удалено!" else "❌ Не найдено"}")
     }
-
-    // ========== 🛠️ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
 
     fun getAdvertsCount(): Int = _allAdverts.size
     fun getFirstAdvertTitle(): String = _allAdverts.firstOrNull()?.title ?: "Нет объявлений"
@@ -330,18 +267,14 @@ class FavoritesViewModel(private val context: Context) : ViewModel() {
         return _allAdverts.find { it.id == advertId }
     }
 
-    // 🧹 Для тестов: очистить ВСЕ данные
     fun clearAllData() {
         viewModelScope.launch {
             _allAdverts.clear()
             favoriteIds.clear()
-
             sharedPrefs.edit()
                 .remove("saved_adverts")
                 .remove("favorite_ids")
                 .apply()
-
-            println("🧹 Все данные очищены")
             loadSampleAdverts()
         }
     }

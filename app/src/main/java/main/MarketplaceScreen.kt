@@ -22,6 +22,8 @@ import com.example.district.models.Category
 import com.example.district.security.SecureAuth
 import com.example.district.viewmodels.FavoritesViewModel
 import com.example.district.viewmodels.FavoritesViewModelFactory
+import com.example.district.data.remote.RetrofitClient
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,30 +33,64 @@ fun MarketplaceScreen() {
     )
     val context = LocalContext.current
     val auth = SecureAuth(context)
+    val scope = rememberCoroutineScope()
+
     var showFilter by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var selectedAdvert by remember { mutableStateOf<Advert?>(null) }
     var showCreateScreen by remember { mutableStateOf(false) }
-    var showEditScreen by remember { mutableStateOf(false) } // ← НОВОЕ
-    var advertToEdit by remember { mutableStateOf<Advert?>(null) } // ← НОВОЕ
+    var showEditScreen by remember { mutableStateOf(false) }
+    var advertToEdit by remember { mutableStateOf<Advert?>(null) }
 
-    // Получаем текущего пользователя и его дом
+    var serverAdverts by remember { mutableStateOf<List<Advert>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            try {
+                val response = RetrofitClient.instance.getAds()
+                serverAdverts = response.map {
+                    Advert(
+                        id = it.id,
+                        title = it.title,
+                        description = it.description,
+                        price = it.price.toString(),
+                        category = "Товары",
+                        author = it.display_name ?: it.username,
+                        phone = it.phone ?: "",
+                        date = it.created_at.take(10),
+                        imageUrl = "",
+                        isFavorite = false,
+                        address = it.address,
+                        ownerLogin = it.username,
+                        canEdit = false,
+                        telegram = it.telegram,
+                        phoneVisible = it.phone_visible,
+                        telegramVisible = it.telegram_visible
+                    )
+                }
+            } catch (e: Exception) {
+                // Ошибка загрузки
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
     val currentUser = auth.getCurrentUser()
-    val currentUserHouse = currentUser?.house ?: ""
+    val currentUserAddress = currentUser?.address ?: ""
 
-    // Получаем ВСЕ товары
-    val allAdverts = favoritesViewModel.allAdverts
-
-    // Фильтруем: сначала по дому, потом по категориям/избранному
-    val filteredAdverts = allAdverts.filter { advert ->
-        // 1. Фильтр по дому (самый важный!)
-        (currentUserHouse.isBlank() || advert.house == currentUserHouse) &&
-                // 2. Фильтр по категории (если выбрана)
-                (selectedCategory == null ||
-                        selectedCategory == "Все товары" ||
-                        advert.category == selectedCategory) &&
-                // 3. Фильтр по избранному (если включён)
-                (!favoritesViewModel.showFavoritesOnly || advert.isFavorite)
+    val filteredAdverts = serverAdverts.filter { advert ->
+        val addressMatch = if (currentUserAddress.isBlank()) {
+            true
+        } else {
+            advert.address?.let { address ->
+                address.equals(currentUserAddress, ignoreCase = true)
+            } == true
+        }
+        val categoryMatch = selectedCategory == null || selectedCategory == "Все товары" || advert.category == selectedCategory
+        val favoriteMatch = !favoritesViewModel.showFavoritesOnly || advert.isFavorite
+        addressMatch && categoryMatch && favoriteMatch
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -63,15 +99,13 @@ fun MarketplaceScreen() {
                 .fillMaxSize()
                 .padding(top = 56.dp)
         ) {
-            // Заголовок и кнопки
             TopAppBar(
                 title = {
-                    // Показываем дом пользователя в заголовке
                     Text(
                         text = if (favoritesViewModel.showFavoritesOnly)
-                            "⭐ Избранное в ${currentUserHouse.takeIf { it.isNotBlank() } ?: "вашем доме"}"
-                        else if (currentUserHouse.isNotBlank())
-                            "District • $currentUserHouse"
+                            "⭐ Избранное в ${currentUserAddress.takeIf { it.isNotBlank() } ?: "вашем доме"}"
+                        else if (currentUserAddress.isNotBlank())
+                            "District • $currentUserAddress"
                         else
                             "District Товары",
                         fontWeight = FontWeight.Bold,
@@ -79,11 +113,7 @@ fun MarketplaceScreen() {
                     )
                 },
                 actions = {
-                    // Кнопка избранного с бейджем
-                    Box(
-                        modifier = Modifier
-                            .wrapContentSize()
-                    ) {
+                    Box(modifier = Modifier.wrapContentSize()) {
                         IconButton(
                             onClick = { favoritesViewModel.toggleShowFavorites() }
                         ) {
@@ -97,18 +127,14 @@ fun MarketplaceScreen() {
                             )
                         }
 
-                        // Бейдж количества избранных
-                        val favoritesCount = favoritesViewModel.allAdverts.count { it.isFavorite }
+                        val favoritesCount = serverAdverts.count { it.isFavorite }
                         if (favoritesCount > 0) {
-                            Badge(
-                                modifier = Modifier.align(Alignment.TopEnd)
-                            ) {
+                            Badge(modifier = Modifier.align(Alignment.TopEnd)) {
                                 Text(favoritesCount.toString())
                             }
                         }
                     }
 
-                    // Кнопка фильтра
                     IconButton(
                         onClick = { showFilter = !showFilter }
                     ) {
@@ -117,7 +143,6 @@ fun MarketplaceScreen() {
                 }
             )
 
-            // Фильтр категорий
             if (showFilter) {
                 FilterCategories(
                     selectedCategory = selectedCategory,
@@ -128,8 +153,7 @@ fun MarketplaceScreen() {
                 )
             }
 
-            // Информация о текущем фильтре
-            if (currentUserHouse.isNotBlank()) {
+            if (currentUserAddress.isNotBlank()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -137,7 +161,7 @@ fun MarketplaceScreen() {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "🏠 $currentUserHouse",
+                        text = "🏠 $currentUserAddress",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -149,92 +173,98 @@ fun MarketplaceScreen() {
                 }
             }
 
-            // Список товаров
-            if (currentUser == null) {
-                // Пользователь не авторизован
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+            when {
+                isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            Icons.Default.PersonOff,
-                            contentDescription = "Не авторизован",
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.outline
-                        )
-                        Text("Войдите, чтобы видеть объявления")
+                        CircularProgressIndicator()
                     }
                 }
-            } else if (filteredAdverts.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                currentUser == null -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            if (favoritesViewModel.showFavoritesOnly) Icons.Outlined.FavoriteBorder
-                            else Icons.Default.Home,
-                            contentDescription = "Нет товаров",
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.outline
-                        )
-                        Text(
-                            text = if (favoritesViewModel.showFavoritesOnly)
-                                "Нет избранных товаров в вашем доме"
-                            else "В вашем доме пока нет объявлений",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = if (favoritesViewModel.showFavoritesOnly)
-                                "Добавляйте товары в избранное ❤️"
-                            else "Будьте первым, кто разместит объявление!",
-                            color = MaterialTheme.colorScheme.outline
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.PersonOff,
+                                contentDescription = "Не авторизован",
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.outline
+                            )
+                            Text("Войдите, чтобы видеть объявления")
+                        }
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(16.dp)
-                ) {
-                    items(filteredAdverts) { advert ->
-                        // Проверяем, может ли пользователь редактировать это объявление
-                        val canEdit = auth.isCurrentUserOwner(advert.ownerLogin)
+                filteredAdverts.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Icon(
+                                if (favoritesViewModel.showFavoritesOnly) Icons.Outlined.FavoriteBorder
+                                else Icons.Default.Home,
+                                contentDescription = "Нет товаров",
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.outline
+                            )
+                            Text(
+                                text = if (favoritesViewModel.showFavoritesOnly)
+                                    "Нет избранных товаров в вашем доме"
+                                else "В вашем доме пока нет объявлений",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                text = if (favoritesViewModel.showFavoritesOnly)
+                                    "Добавляйте товары в избранное ❤️"
+                                else "Будьте первым, кто разместит объявление!",
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(16.dp)
+                    ) {
+                        items(filteredAdverts) { advert ->
+                            val canEdit = auth.isCurrentUserOwner(advert.ownerLogin)
 
-                        AdvertCard(
-                            advert = advert,
-                            onFavoriteClick = {
-                                favoritesViewModel.toggleFavorite(advert.id)
-                            },
-                            onAdvertClick = {
-                                selectedAdvert = advert
-                            },
-                            onEditClick = { // ← НОВАЯ КНОПКА РЕДАКТИРОВАНИЯ
-                                advertToEdit = advert
-                                showEditScreen = true
-                            },
-                            isFavorite = favoritesViewModel.isFavorite(advert.id),
-                            canEdit = canEdit // ← ПЕРЕДАЕМ В КАРТОЧКУ
-                        )
+                            AdvertCard(
+                                advert = advert,
+                                onFavoriteClick = {
+                                    favoritesViewModel.toggleFavorite(advert.id)
+                                },
+                                onAdvertClick = {
+                                    selectedAdvert = advert
+                                },
+                                onEditClick = {
+                                    advertToEdit = advert
+                                    showEditScreen = true
+                                },
+                                isFavorite = favoritesViewModel.isFavorite(advert.id),
+                                canEdit = canEdit
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // Кнопка "+" для создания объявления
         if (currentUser != null) {
             FloatingActionButton(
-                onClick = {
-                    showCreateScreen = true
-                },
+                onClick = { showCreateScreen = true },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
@@ -246,7 +276,6 @@ fun MarketplaceScreen() {
         }
     }
 
-    // Показываем детальный экран если выбрали объявление
     selectedAdvert?.let { advert ->
         val canEdit = auth.isCurrentUserOwner(advert.ownerLogin)
 
@@ -257,32 +286,29 @@ fun MarketplaceScreen() {
                 favoritesViewModel.toggleFavorite(id)
             },
             isFavorite = favoritesViewModel.isFavorite(advert.id),
-            onEdit = { // ← НОВАЯ КНОПКА РЕДАКТИРОВАНИЯ
+            onEdit = {
                 advertToEdit = advert
                 showEditScreen = true
-                selectedAdvert = null // Закрываем детальный экран
+                selectedAdvert = null
             },
             canEdit = canEdit
         )
     }
 
-    // Показываем экран создания объявления
     if (showCreateScreen) {
         AdvertEditorScreen(
-            advert = null, // Создание нового
+            advert = null,
             onBack = { showCreateScreen = false },
             onSave = { newAdvert ->
                 showCreateScreen = false
-                // Можно показать уведомление
             },
             favoritesViewModel = favoritesViewModel
         )
     }
 
-    // Показываем экран редактирования объявления
     if (showEditScreen && advertToEdit != null) {
         AdvertEditorScreen(
-            advert = advertToEdit, // Редактирование существующего
+            advert = advertToEdit,
             onBack = {
                 showEditScreen = false
                 advertToEdit = null
@@ -290,7 +316,6 @@ fun MarketplaceScreen() {
             onSave = { updatedAdvert ->
                 showEditScreen = false
                 advertToEdit = null
-                // Обновляем выбранное объявление если оно открыто
                 if (selectedAdvert?.id == updatedAdvert.id) {
                     selectedAdvert = updatedAdvert
                 }
@@ -305,9 +330,9 @@ fun AdvertCard(
     advert: Advert,
     onFavoriteClick: () -> Unit,
     onAdvertClick: () -> Unit,
-    onEditClick: () -> Unit, // ← НОВЫЙ ПАРАМЕТР
+    onEditClick: () -> Unit,
     isFavorite: Boolean,
-    canEdit: Boolean // ← НОВЫЙ ПАРАМЕТР
+    canEdit: Boolean
 ) {
     Card(
         modifier = Modifier
@@ -320,13 +345,11 @@ fun AdvertCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Первая строка: Избранное + Заголовок + Цена
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Кнопка избранного
                 IconButton(
                     onClick = onFavoriteClick,
                     modifier = Modifier.size(40.dp)
@@ -341,7 +364,6 @@ fun AdvertCard(
                     )
                 }
 
-                // Заголовок
                 Text(
                     text = advert.title,
                     style = MaterialTheme.typography.titleMedium,
@@ -350,7 +372,6 @@ fun AdvertCard(
                     modifier = Modifier.weight(1f)
                 )
 
-                // Цена
                 Text(
                     text = advert.price,
                     style = MaterialTheme.typography.titleLarge,
@@ -361,13 +382,11 @@ fun AdvertCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Категория и кнопка редактирования (если можно)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Категория
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.secondaryContainer,
@@ -380,7 +399,6 @@ fun AdvertCard(
                     )
                 }
 
-                // Кнопка редактирования (только для владельца)
                 if (canEdit) {
                     IconButton(
                         onClick = onEditClick,
@@ -398,7 +416,6 @@ fun AdvertCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Описание
             Text(
                 text = advert.description,
                 style = MaterialTheme.typography.bodyMedium,
@@ -407,7 +424,6 @@ fun AdvertCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Подвал: автор и дата
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -427,17 +443,17 @@ fun AdvertCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Кнопки действий
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
-                    onClick = { /* Позвонить */ },
+                    onClick = { /* TODO: реализовать звонок */ },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
+                    ),
+                    enabled = advert.phoneVisible && advert.phone?.isNotBlank() == true
                 ) {
                     Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
@@ -445,12 +461,13 @@ fun AdvertCard(
                 }
 
                 OutlinedButton(
-                    onClick = { /* Написать */ },
-                    modifier = Modifier.weight(1f)
+                    onClick = { /* TODO: реализовать Telegram */ },
+                    modifier = Modifier.weight(1f),
+                    enabled = advert.telegramVisible && advert.telegram?.isNotBlank() == true
                 ) {
                     Icon(Icons.Default.Message, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Написать")
+                    Text("Telegram")
                 }
             }
         }
@@ -477,7 +494,6 @@ fun FilterCategories(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            // Все категории + "Все товары"
             val categories = listOf("Все товары") + Category.values().map { it.title }
 
             categories.forEach { category ->
@@ -522,5 +538,5 @@ fun CategoryFilterItem(
         }
     }
 
-    androidx.compose.material3.Divider(modifier = Modifier.padding(vertical = 4.dp))
+    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 }

@@ -8,13 +8,16 @@ data class Advert(
     val price: String,
     val category: String,
     val author: String,
-    val phone: String,
+    val phone: String? = null,           // ← изменено на nullable
+    val telegram: String? = null,        // ← добавлено
     val date: String,
-    val imageUrl: String = "", // для будущих фото
+    val imageUrl: String = "",
     var isFavorite: Boolean = false,
-    val house: String, // ← ЗАПЯТАЯ ЗДЕСЬ ОБЯЗАТЕЛЬНА!
-    val ownerLogin: String = "", // ← ДОБАВЛЕНО: логин владельца для проверки
-    var canEdit: Boolean = false // ← ДОБАВЛЕНО: может ли текущий пользователь редактировать
+    val ownerLogin: String = "",
+    var canEdit: Boolean = false,
+    val phoneVisible: Boolean = false,    // ← добавлено
+    val address: String? = null,
+    val telegramVisible: Boolean = false  // ← добавлено
 )
 
 // Категории товаров
@@ -26,11 +29,3 @@ enum class Category(val title: String) {
     AUTO("Авто"),
     OTHER("Другое")
 }
-
-// Расширяем модель пользователя
-data class UserProfile(
-    val login: String,
-    val displayName: String, // Имя для показа
-    val house: String, // Дом пользователя
-    val phone: String = ""
-)
