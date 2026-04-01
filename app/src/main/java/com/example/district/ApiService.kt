@@ -7,6 +7,7 @@ import com.example.district.data.remote.model.ProfileUpdate
 import com.example.district.data.remote.model.AdvertResponse
 import com.example.district.data.remote.model.RegisterRequest
 import com.example.district.data.remote.model.RegisterResponse
+import com.example.district.data.remote.model.CreateAdRequest
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PATCH
@@ -30,4 +31,7 @@ interface ApiService {
 
     @POST("/register")
     suspend fun register(@Body request: RegisterRequest): RegisterResponse
+
+    @POST("/ads")
+    suspend fun createAd(@Body request: CreateAdRequest): AdvertResponse
 }

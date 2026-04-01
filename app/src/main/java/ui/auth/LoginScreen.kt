@@ -137,10 +137,11 @@ fun LoginScreen(
 
                         val auth = SecureAuth(context)
                         auth.saveToken(response.access_token)
+                        auth.saveUser(response.user.username, response.user.display_name ?: response.user.username, response.user.address)
 
                         // ДОБАВЛЕНО: сохраняем информацию о пользователе
                         val user = response.user
-                        auth.saveUser(user.username, user.display_name ?: user.username, user.house_id.toString())
+                        auth.saveUser(user.username, user.display_name ?: user.username, user.address.toString())
 
                         // log.d("TOKEN_TEST", "Сохранён: ${response.access_token.take(20)}...")
 

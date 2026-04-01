@@ -78,6 +78,7 @@ fun MarketplaceScreen() {
     }
 
     val currentUser = auth.getCurrentUser()
+    println("DEBUG_ADDRESS: address = ${currentUser?.address}")
     val currentUserAddress = currentUser?.address ?: ""
 
     val filteredAdverts = serverAdverts.filter { advert ->
@@ -298,6 +299,7 @@ fun MarketplaceScreen() {
     if (showCreateScreen) {
         AdvertEditorScreen(
             advert = null,
+            apiService = RetrofitClient.instance,
             onBack = { showCreateScreen = false },
             onSave = { newAdvert ->
                 showCreateScreen = false
@@ -309,6 +311,7 @@ fun MarketplaceScreen() {
     if (showEditScreen && advertToEdit != null) {
         AdvertEditorScreen(
             advert = advertToEdit,
+            apiService = RetrofitClient.instance,
             onBack = {
                 showEditScreen = false
                 advertToEdit = null

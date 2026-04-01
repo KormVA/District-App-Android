@@ -317,6 +317,8 @@ class SecureAuth(private val context: Context) {
         sharedPrefs.edit()
             .remove("user_login")
             .remove("user_display_name")
+            .remove("user_house")
+            .remove("user_address")
             .apply()
         // log.d("SecureAuth", "User logged out: $currentUser")
     }

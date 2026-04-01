@@ -10,5 +10,5 @@ data class User(
     val id: Int,
     val username: String,
     val display_name: String?,
-    val house_id: Int
+    val address: String
 )

@@ -20,11 +20,16 @@ import com.example.district.security.SecureAuth
 import com.example.district.viewmodels.FavoritesViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.district.data.remote.api.ApiService
+import com.example.district.data.remote.model.CreateAdRequest
+import retrofit2.HttpException
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdvertEditorScreen(
     advert: Advert? = null,
+    apiService: ApiService,
     onBack: () -> Unit,
     onSave: (Advert) -> Unit,
     favoritesViewModel: FavoritesViewModel
@@ -33,6 +38,7 @@ fun AdvertEditorScreen(
     val auth = SecureAuth(context)
     val currentUser = auth.getCurrentUser()
     val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
 
     var title by remember { mutableStateOf(advert?.title ?: "") }
     var description by remember { mutableStateOf(advert?.description ?: "") }
@@ -190,50 +196,63 @@ fun AdvertEditorScreen(
                     val userAddress = currentUser?.address ?: ""
                     val userLogin = currentUser?.login ?: ""
 
-                    val updatedAdvert = if (isEditMode) {
-                        advert!!.copy(
-                            title = title,
-                            description = description,
-                            price = "$price ₽",
-                            category = selectedCategory.title,
-                            phone = phone
-                        )
-                    } else {
-                        val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
-                        val currentDate = dateFormat.format(Date())
+                    scope.launch {
+                        isLoading = true
+                        errorMessage = null
 
-                        Advert(
-                            id = (favoritesViewModel.allAdverts.maxOfOrNull { it.id } ?: 0) + 1,
-                            title = title,
-                            description = description,
-                            price = "$price ₽",
-                            category = selectedCategory.title,
-                            author = currentUser?.displayName ?: "Вы",
-                            phone = phone,
-                            date = currentDate,
-                            address = userAddress,
-                            isFavorite = false,
-                            ownerLogin = userLogin,
-                            canEdit = true,
-                            telegram = null,
-                            phoneVisible = true,
-                            telegramVisible = false
-                        )
+                        try {
+                            val response = apiService.createAd(
+                                CreateAdRequest(
+                                    title = title,
+                                    description = description,
+                                    price = price.toDoubleOrNull() ?: 0.0
+                                )
+                            )
+
+                            val newAdvert = Advert(
+                                id = response.id,
+                                title = response.title,
+                                description = response.description,
+                                price = response.price.toString(),
+                                category = selectedCategory.title,
+                                author = currentUser?.displayName ?: "Вы",
+                                phone = phone,
+                                date = response.created_at.take(10),
+                                imageUrl = "",
+                                isFavorite = false,
+                                address = response.address,
+                                ownerLogin = userLogin,
+                                canEdit = true,
+                                telegram = null,
+                                phoneVisible = true,
+                                telegramVisible = false
+                            )
+
+                            if (isEditMode) {
+                                favoritesViewModel.updateAdvert(newAdvert)
+                            } else {
+                                favoritesViewModel.addNewAdvert(newAdvert)
+                            }
+
+                            onSave(newAdvert)
+
+                        } catch (e: HttpException) {
+                            when (e.code()) {
+                                401 -> errorMessage = "Не авторизован"
+                                400 -> errorMessage = "Неверные данные"
+                                else -> errorMessage = "Ошибка сервера (${e.code()})"
+                            }
+                        } catch (e: Exception) {
+                            errorMessage = "Ошибка сети: ${e.message}"
+                        } finally {
+                            isLoading = false
+                        }
                     }
-
-                    if (isEditMode) {
-                        favoritesViewModel.updateAdvert(updatedAdvert)
-                    } else {
-                        favoritesViewModel.addNewAdvert(updatedAdvert)
-                    }
-
-                    onSave(updatedAdvert)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isLoading
             ) {
-                Icon(if (isEditMode) Icons.Default.Edit else Icons.Default.Add,
-                    contentDescription = null)
+                Icon(if (isEditMode) Icons.Default.Edit else Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(buttonText)
             }
@@ -261,7 +280,7 @@ fun AdvertEditorScreen(
                 "* - обязательные поля",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
