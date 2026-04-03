@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.district.models.Advert
+import android.content.Intent
+import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,6 +33,7 @@ fun AdvertDetailScreen(
     onEdit: () -> Unit,
     canEdit: Boolean
 ) {
+    val context = LocalContext.current
     val scrollState = rememberScrollState()
     var showPhone by remember { mutableStateOf(false) }
 
@@ -260,9 +263,10 @@ fun AdvertDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Button(
-                        onClick = { /* TODO: Позвонить */ },
+                        onClick = { val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${advert.phone}"))
+                            context.startActivity(intent) },
                         modifier = Modifier.weight(1f),
-                        enabled = showPhone
+                        enabled = advert.phoneVisible && advert.phone?.isNotBlank() == true
                     ) {
                         Icon(Icons.Default.Call, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
@@ -270,8 +274,12 @@ fun AdvertDetailScreen(
                     }
 
                     OutlinedButton(
-                        onClick = { /* TODO: Написать сообщение */ },
-                        modifier = Modifier.weight(1f)
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("tg://resolve?domain=${advert.telegram}"))
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = advert.telegramVisible && advert.telegram?.isNotBlank() == true
                     ) {
                         Icon(Icons.Default.Message, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))

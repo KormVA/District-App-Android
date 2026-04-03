@@ -14,7 +14,7 @@ class AuthInterceptor(
         val originalRequest = chain.request()
         val token = SecureAuth(context).getToken()
 
-        // log.d("TOKEN_TEST", "Interceptor токен: ${token?.take(20)}...")
+
 
         val request = if (token != null && token.isNotBlank()) {
             originalRequest.newBuilder()

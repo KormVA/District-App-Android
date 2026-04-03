@@ -29,7 +29,7 @@ object RetrofitClient {
 
     private val loggingInterceptor: HttpLoggingInterceptor
         get() = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = HttpLoggingInterceptor.Level.NONE
         }
 
     private val okHttpClient: OkHttpClient

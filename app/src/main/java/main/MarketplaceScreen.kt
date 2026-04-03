@@ -24,6 +24,8 @@ import com.example.district.viewmodels.FavoritesViewModel
 import com.example.district.viewmodels.FavoritesViewModelFactory
 import com.example.district.data.remote.RetrofitClient
 import kotlinx.coroutines.launch
+import android.content.Intent
+import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,7 +80,6 @@ fun MarketplaceScreen() {
     }
 
     val currentUser = auth.getCurrentUser()
-    println("DEBUG_ADDRESS: address = ${currentUser?.address}")
     val currentUserAddress = currentUser?.address ?: ""
 
     val filteredAdverts = serverAdverts.filter { advert ->
@@ -252,6 +253,7 @@ fun MarketplaceScreen() {
                                 },
                                 onEditClick = {
                                     advertToEdit = advert
+
                                     showEditScreen = true
                                 },
                                 isFavorite = favoritesViewModel.isFavorite(advert.id),
@@ -337,6 +339,8 @@ fun AdvertCard(
     isFavorite: Boolean,
     canEdit: Boolean
 ) {
+    val context = LocalContext.current
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -451,7 +455,9 @@ fun AdvertCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
-                    onClick = { /* TODO: реализовать звонок */ },
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${advert.phone}"))
+                        context.startActivity(intent) },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -464,7 +470,8 @@ fun AdvertCard(
                 }
 
                 OutlinedButton(
-                    onClick = { /* TODO: реализовать Telegram */ },
+                    onClick = { val intent = Intent(Intent.ACTION_VIEW, Uri.parse("tg://resolve?domain=${advert.telegram}"))
+                        context.startActivity(intent) },
                     modifier = Modifier.weight(1f),
                     enabled = advert.telegramVisible && advert.telegram?.isNotBlank() == true
                 ) {

@@ -47,7 +47,7 @@ class SecureAuth(private val context: Context) {
                 val hash = factory.generateSecret(spec).encoded
                 return Base64.encodeToString(hash, Base64.NO_WRAP)
             } catch (e: Exception) {
-                // log.e("SecureAuth", "PBKDF2 failed: ${e.message}", e)
+
                 throw RuntimeException("Password hashing failed", e)
             }
         }
@@ -162,7 +162,7 @@ class SecureAuth(private val context: Context) {
     }
 
     private fun notifyAdmin(message: String) {
-        // log.e("SECURITY_ALERT", message)
+
     }
 
     private fun cleanupOldLogs() {
@@ -289,7 +289,7 @@ class SecureAuth(private val context: Context) {
             .putString("user_display_name", displayName)
             .putString("user_house", house)
             .apply()
-        // log.d("SecureAuth", "User logged in: $login ($displayName)")
+
     }
 
     fun getCurrentUser(): UserProfile? {
@@ -320,12 +320,12 @@ class SecureAuth(private val context: Context) {
             .remove("user_house")
             .remove("user_address")
             .apply()
-        // log.d("SecureAuth", "User logged out: $currentUser")
+
     }
 
     fun registerUser(login: String, password: String, displayName: String, house: String): Boolean {
         if (password.length < 8) {
-            // log.w("SecureAuth", "Password too short: ${password.length} chars")
+
             return false
         }
 
@@ -339,7 +339,6 @@ class SecureAuth(private val context: Context) {
             .putString("${login}_house", house)
             .apply()
 
-        // log.d("SecureAuth", "User registered: $login with PBKDF2 hash")
         loginUser(login, displayName, house)
         return true
     }
@@ -349,7 +348,7 @@ class SecureAuth(private val context: Context) {
         val oldSalt = sharedPrefs.getString("${login}_salt", null)
 
         if (oldHash == null || oldSalt == null) {
-            // log.e("SecureAuth", "Cannot migrate: user data not found for $login")
+
             return false
         }
 
@@ -359,7 +358,7 @@ class SecureAuth(private val context: Context) {
         val calculatedOldHashBase64 = Base64.encodeToString(calculatedOldHash, Base64.NO_WRAP)
 
         if (calculatedOldHashBase64 != oldHash) {
-            // log.e("SecureAuth", "Cannot migrate: password incorrect for $login")
+
             return false
         }
 
@@ -371,7 +370,7 @@ class SecureAuth(private val context: Context) {
             .putString("${login}_salt", newSalt)
             .apply()
 
-        // log.d("SecureAuth", "User migrated to PBKDF2: $login")
+
         return true
     }
 

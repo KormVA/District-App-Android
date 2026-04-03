@@ -101,8 +101,8 @@ fun ProfileEditScreen(
                     ProfileUpdate(
                         phone = phone.ifEmpty { null },
                         telegram = telegram.ifEmpty { null },
-                        phoneVisible = phoneVisible,
-                        telegramVisible = telegramVisible
+                        phone_visible = phoneVisible,
+                        telegram_visible = telegramVisible
                     )
                 )
             },
