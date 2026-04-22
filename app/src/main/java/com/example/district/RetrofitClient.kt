@@ -10,6 +10,8 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import java.net.Proxy
+import java.net.InetSocketAddress
 
 object RetrofitClient {
 
@@ -34,6 +36,7 @@ object RetrofitClient {
 
     private val okHttpClient: OkHttpClient
         get() = OkHttpClient.Builder()
+            .proxy(Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", 8080)))
             .addInterceptor(hmacInterceptor)      // ← СНАЧАЛА HMAC
             .addInterceptor(authInterceptor)      // ← ПОТОМ ТОКЕН
             .addInterceptor(loggingInterceptor)
